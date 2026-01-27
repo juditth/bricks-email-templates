@@ -1,0 +1,349 @@
+/* Email Builder Admin Styles */
+
+.bet-builder-wrap {
+    margin: 20px 20px 20px 0;
+    max-width: 1600px;
+    /* Limit width on large screens for better 1:1 feel */
+}
+
+.bet-builder-container {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+    align-items: flex-start;
+}
+
+.bet-builder-form-panel {
+    flex: 1;
+    min-width: 0;
+    /* Prevent flex overflow */
+}
+
+.bet-builder-preview-panel {
+    flex: 1;
+    min-width: 0;
+}
+
+.bet-sticky-preview {
+    position: sticky;
+    top: 50px;
+    /* Adjust based on WP admin bar/padding */
+}
+
+.bet-builder-header-actions {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.bet-toolbar {
+    display: flex;
+    gap: 10px;
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 1000px) {
+    .bet-builder-container {
+        flex-direction: column;
+    }
+
+    .bet-sticky-preview {
+        position: static;
+    }
+}
+
+/* Cards */
+.bet-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    /* Reduced from 25px */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.bet-card h2 {
+    margin-top: 0;
+    font-size: 20px;
+    color: #1e293b;
+}
+
+.bet-card h3 {
+    margin-top: 0;
+    font-size: 16px;
+    color: #475569;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+/* Form Groups */
+.bet-form-group {
+    margin-bottom: 15px;
+    /* Reduced from 20px */
+}
+
+.bet-form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    /* Reduced from 8px */
+    color: #334155;
+    font-size: 13px;
+    /* Slightly smaller */
+}
+
+.bet-input,
+.bet-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.bet-input:focus,
+.bet-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.bet-textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Layout Selector */
+.bet-layout-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.bet-layout-option {
+    cursor: pointer;
+    margin: 0;
+}
+
+.bet-layout-option input[type="radio"] {
+    display: none;
+}
+
+.bet-layout-card {
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    text-align: center;
+    transition: all 0.2s;
+    background: #fff;
+}
+
+.bet-layout-card strong {
+    display: block;
+    font-size: 14px;
+    color: #1e293b;
+    margin-bottom: 2px;
+    /* Reduced spacing */
+}
+
+.bet-layout-card small {
+    font-size: 11px;
+    /* Slightly smaller */
+    color: #64748b;
+    line-height: 1.2;
+}
+
+.bet-layout-option input[type="radio"]:checked+.bet-layout-card {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.bet-layout-card:hover {
+    border-color: #94a3b8;
+}
+
+/* Color Picker Grid */
+.bet-color-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.bet-color-item label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 5px;
+}
+
+.bet-color-picker {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Media Upload */
+.bet-media-upload {
+    display: flex;
+    gap: 10px;
+}
+
+.bet-media-upload .bet-input {
+    flex: 1;
+}
+
+.bet-upload-btn {
+    white-space: nowrap;
+}
+
+.bet-logo-preview {
+    max-width: 150px;
+    margin-top: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+/* Form Actions */
+.bet-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Preview */
+.bet-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 15px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.bet-preview-placeholder {
+    text-align: center;
+    color: #94a3b8;
+    padding: 40px 20px;
+    font-style: italic;
+}
+
+.bet-preview iframe {
+    width: 100%;
+    border: none;
+    min-height: 500px;
+    border-radius: 4px;
+}
+
+/* Templates List */
+.bet-no-templates {
+    text-align: center;
+    color: #94a3b8;
+    padding: 20px;
+    font-style: italic;
+}
+
+.bet-templates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bet-template-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.bet-template-item:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.bet-template-info strong {
+    display: block;
+    font-size: 14px;
+    color: #1e293b;
+    margin-bottom: 3px;
+}
+
+.bet-template-info small {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.bet-template-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.button-small {
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    height: auto !important;
+}
+
+/* Loading State */
+.bet-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.bet-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #3b82f6;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: bet-spin 0.6s linear infinite;
+}
+
+@keyframes bet-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Success/Error Messages */
+.bet-message {
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.bet-message-success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.bet-message-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
