@@ -120,6 +120,41 @@
     font-family: inherit;
 }
 
+.bet-code-textarea {
+    font-family: Consolas, Monaco, monospace;
+    min-height: 360px;
+    line-height: 1.5;
+}
+
+.bet-placeholder-panel {
+    background: #f8fafc;
+    border: 1px solid #dbe3ef;
+    border-radius: 8px;
+    margin: 0 0 18px;
+    padding: 14px;
+}
+
+.bet-placeholder-panel-title {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.bet-placeholder-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bet-placeholder-chip {
+    cursor: pointer;
+}
+
+.bet-mode-section {
+    margin-top: 10px;
+}
+
 /* Layout Selector */
 .bet-layout-selector {
     display: grid;
