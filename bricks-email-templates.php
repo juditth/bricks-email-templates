@@ -585,6 +585,9 @@ class Bricks_Email_Templates
         if (trim($custom_html) === '') {
             wp_send_json_error('HTML template is required.');
         }
+        if (preg_match('/<\?(php|=)?/i', $custom_html)) {
+            wp_send_json_error('PHP code is not allowed in email templates.');
+        }
 
         $related_form_id = sanitize_text_field(wp_unslash($_POST['related_form_id'] ?? ''));
         $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));

@@ -26,7 +26,6 @@ Templates are not stored as template records in the database.
 They live in your active theme folder:
 
 ```text
-wp-content/themes/your-child-theme/bricks-email-templates/contact.php
 wp-content/themes/your-child-theme/bricks-email-templates/contact.html
 wp-content/themes/your-parent-theme/bricks-email-templates/contact.html
 ```
