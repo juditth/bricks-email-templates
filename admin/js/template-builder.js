@@ -39,8 +39,51 @@ jQuery(document).ready(function ($) {
 
     $('#related_form_id').on('change', function () {
         renderPlaceholders();
+        syncTemplateForSelectedContext();
     });
     renderPlaceholders();
+
+    $('#template_target').on('change', function () {
+        syncTemplateForSelectedContext();
+    });
+
+    function syncTemplateForSelectedContext() {
+        const formData = getFormData();
+        if (!formData.related_form_id) {
+            resetTemplateDraftForContext();
+            return;
+        }
+
+        $.ajax({
+            url: betAjax.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'bet_find_template_for_target',
+                nonce: betAjax.nonce,
+                related_form_id: formData.related_form_id,
+                template_target: formData.template_target
+            },
+            success: function (response) {
+                const nextSlug = response.success && response.data ? response.data.slug : '';
+                if (nextSlug && nextSlug !== $('#template_slug').val()) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', 'bricks-email-builder');
+                    url.searchParams.set('edit', nextSlug);
+                    url.searchParams.set('preview', '1');
+                    window.location.href = url.toString();
+                    return;
+                }
+                if (!nextSlug) {
+                    resetTemplateDraftForContext();
+                    return;
+                }
+                $('#bet-preview-btn').trigger('click');
+            },
+            error: function () {
+                resetTemplateDraftForContext();
+            }
+        });
+    }
 
     $('#existing_template_slug').on('change', function () {
         const slug = $(this).val();
@@ -89,14 +132,12 @@ jQuery(document).ready(function ($) {
                     showMessage('Preview failed.', 'error');
                     return;
                 }
-                const iframe = $('<iframe></iframe>');
-                $preview.html(iframe);
-                const iframeDoc = iframe[0].contentDocument || iframe[0].contentWindow.document;
-                iframeDoc.open();
-                iframeDoc.write(response.data);
-                iframeDoc.close();
-                resizePreviewIframe(iframe);
-                iframe.on('load', function () { resizePreviewIframe(iframe); });
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('sandbox', '');
+                iframe.setAttribute('srcdoc', response.data);
+                iframe.style.height = getPreviewFallbackHeight() + 'px';
+                $preview.empty();
+                $preview[0].appendChild(iframe);
             },
             error: function () {
                 $btn.prop('disabled', false).text(originalText);
@@ -131,6 +172,9 @@ jQuery(document).ready(function ($) {
                     const slug = response.data && response.data.slug ? response.data.slug : $('#template_slug').val();
                     if (slug) {
                         $('#template_slug').val(slug);
+                        if (response.data && response.data.uuid) {
+                            $('#template_uuid').val(response.data.uuid);
+                        }
                         $('#existing_template_slug').val(slug);
                         setTimeout(function () {
                             window.location.href = 'admin.php?page=bricks-email-builder&edit=' + encodeURIComponent(slug) + '&preview=1';
@@ -153,8 +197,10 @@ jQuery(document).ready(function ($) {
     function getFormData() {
         return {
             template_slug: $('#template_slug').val(),
+            template_uuid: $('#template_uuid').val(),
             name: String($('#template_name').val() || '').trim(),
             related_form_id: $('#related_form_id').val(),
+            template_target: $('#template_target').val(),
             custom_html: String($('#custom_html').val() || '').trim()
         };
     }
@@ -176,23 +222,18 @@ jQuery(document).ready(function ($) {
         $target.trigger('focus').trigger('input');
     }
 
-    function resizePreviewIframe($iframe) {
-        const iframe = $iframe[0];
-        if (!iframe) {
-            return;
-        }
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
-        const body = doc.body;
-        const html = doc.documentElement;
-        const height = Math.max(
-            body ? body.scrollHeight : 0,
-            body ? body.offsetHeight : 0,
-            html ? html.clientHeight : 0,
-            html ? html.scrollHeight : 0,
-            html ? html.offsetHeight : 0,
-            120
-        );
-        $iframe.height(height + 24);
+    function resetTemplateDraftForContext() {
+        $('#template_slug').val('');
+        $('#template_uuid').val('');
+        $('#existing_template_slug').val('');
+        $('#template_name').val('');
+        $('#custom_html').val('').trigger('input');
+        $('#bet-preview-container').html('<p class="bet-preview-placeholder">Click Refresh preview to render the template.</p>');
+        showMessage('No saved template exists for this form and target yet. Create a new template and save it.', 'success');
+    }
+
+    function getPreviewFallbackHeight() {
+        return 1000;
     }
 
     function showMessage(message, type) {

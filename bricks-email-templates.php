@@ -26,6 +26,9 @@ class Bricks_Email_Templates
 {
     private static $instance = null;
     private static $captured_fields = null;
+    private static $active_form_id = '';
+    private static $primary_email_seen = false;
+    private static $processed_message_hashes = array();
 
     public static function get_instance()
     {
@@ -49,7 +52,8 @@ class Bricks_Email_Templates
         add_action('wp_ajax_bet_save_template', array($this, 'ajax_save_template'));
         add_action('wp_ajax_bet_delete_template', array($this, 'ajax_delete_template'));
         add_action('wp_ajax_bet_preview_template', array($this, 'ajax_preview_template'));
-        add_filter('bricks/form/email_content', array($this, 'process_email_template'), 999, 2);
+        add_action('wp_ajax_bet_find_template_for_target', array($this, 'ajax_find_template_for_target'));
+        add_filter('bricks/form/email_content', array($this, 'process_email_template'), 999, 3);
         add_filter('wp_mail', array($this, 'intercept_wp_mail'), 999);
         add_action('bricks/form/submit', array($this, 'capture_form_data'), 5, 1);
     }
@@ -94,6 +98,39 @@ class Bricks_Email_Templates
         } elseif (isset($form->fields)) {
             self::$captured_fields = $form->fields;
         }
+
+        self::$active_form_id = $this->extract_form_id_from_form($form, self::$captured_fields);
+        self::$primary_email_seen = false;
+    }
+
+    private function extract_form_id_from_form($form, $fields = array())
+    {
+        if (is_array($fields)) {
+            foreach (array('formId', 'form_id', 'id') as $key) {
+                if (!empty($fields[$key])) {
+                    return sanitize_text_field($fields[$key]);
+                }
+            }
+        }
+
+        if (method_exists($form, 'get_settings')) {
+            $settings = $form->get_settings();
+            if (is_array($settings)) {
+                foreach (array('id', 'formId', 'form_id') as $key) {
+                    if (!empty($settings[$key])) {
+                        return sanitize_text_field($settings[$key]);
+                    }
+                }
+            }
+        }
+
+        foreach (array('form_id', 'formId', 'id') as $property) {
+            if (isset($form->{$property}) && $form->{$property} !== '') {
+                return sanitize_text_field($form->{$property});
+            }
+        }
+
+        return '';
     }
 
     public function add_admin_menu()
@@ -238,6 +275,7 @@ class Bricks_Email_Templates
     {
         $templates = array();
         $seen = array();
+        $template_index = $this->get_template_index();
 
         foreach ($this->get_theme_template_directories() as $dir) {
             if (!is_dir($dir)) {
@@ -255,13 +293,15 @@ class Bricks_Email_Templates
                 }
 
                 $path = trailingslashit($dir) . $file;
-                $meta = $this->read_template_file_metadata($path, $slug);
+                $meta = $this->get_template_meta($slug, $path, isset($template_index[$slug]) ? $template_index[$slug] : array());
                 $seen[$slug] = true;
                 $templates[] = array(
                     'id' => 'file_' . $slug,
                     'slug' => $slug,
+                    'uuid' => $meta['uuid'],
                     'name' => $meta['name'],
                     'related_form_id' => $meta['related_form_id'],
+                    'template_target' => $meta['template_target'],
                     'file' => $path,
                     'type' => 'file',
                 );
@@ -271,33 +311,83 @@ class Bricks_Email_Templates
         return $templates;
     }
 
-    private function read_template_file_metadata($path, $slug)
+    private function get_template_index()
+    {
+        $index = get_option('bet_template_index', array());
+        return is_array($index) ? $index : array();
+    }
+
+    private function save_template_index($index)
+    {
+        update_option('bet_template_index', is_array($index) ? $index : array());
+    }
+
+    private function get_template_meta($slug, $path = '', $stored_meta = array())
+    {
+        $stored_meta = is_array($stored_meta) ? $stored_meta : array();
+        $legacy_meta = $path ? $this->read_legacy_template_file_metadata($path, $slug) : array();
+
+        return array(
+            'uuid' => !empty($stored_meta['uuid']) ? sanitize_key($stored_meta['uuid']) : (!empty($legacy_meta['uuid']) ? $legacy_meta['uuid'] : ''),
+            'name' => !empty($stored_meta['name']) ? sanitize_text_field($stored_meta['name']) : (!empty($legacy_meta['name']) ? $legacy_meta['name'] : ucwords(str_replace(array('-', '_'), ' ', $slug))),
+            'related_form_id' => !empty($stored_meta['related_form_id']) ? sanitize_text_field($stored_meta['related_form_id']) : (!empty($legacy_meta['related_form_id']) ? $legacy_meta['related_form_id'] : ''),
+            'template_target' => !empty($stored_meta['template_target']) ? $this->normalize_template_target($stored_meta['template_target']) : (!empty($legacy_meta['template_target']) ? $legacy_meta['template_target'] : 'email'),
+        );
+    }
+
+    private function read_legacy_template_file_metadata($path, $slug)
     {
         $content = file_exists($path) ? (string) file_get_contents($path) : '';
+        $uuid = '';
         $name = ucwords(str_replace(array('-', '_'), ' ', $slug));
         $related_form_id = '';
+        $template_target = 'email';
 
+        if (preg_match('/BET Template UUID:\s*(.+)/i', $content, $match)) {
+            $uuid = sanitize_key(trim($match[1]));
+        }
         if (preg_match('/BET Template Name:\s*(.+)/i', $content, $match)) {
             $name = sanitize_text_field(trim($match[1]));
         }
         if (preg_match('/BET Related Form ID:\s*(.+)/i', $content, $match)) {
             $related_form_id = sanitize_text_field(trim($match[1]));
         }
+        if (preg_match('/BET Template Target:\s*(.+)/i', $content, $match)) {
+            $template_target = $this->normalize_template_target($match[1]);
+        }
 
         return array(
+            'uuid' => $uuid,
             'name' => $name,
             'related_form_id' => $related_form_id,
+            'template_target' => $template_target,
         );
     }
 
     private function strip_template_file_metadata($content)
     {
-        return preg_replace('/^\s*<!--\s*BET Template Name:.*?BET End Metadata\s*-->\s*/is', '', (string) $content);
+        return preg_replace('/^\s*<!--\s*BET Template .*?BET End Metadata\s*-->\s*/is', '', (string) $content);
     }
 
-    private function build_template_file_content($name, $related_form_id, $html)
+    private function build_template_file_content($html)
     {
-        return "<!--\nBET Template Name: " . $name . "\nBET Related Form ID: " . $related_form_id . "\nBET End Metadata\n-->\n" . ltrim($html);
+        return ltrim($this->strip_template_file_metadata($html));
+    }
+
+    private function contains_php_code($content)
+    {
+        return preg_match('/<\?(php|=)?/i', (string) $content) === 1;
+    }
+
+    private function normalize_template_target($target)
+    {
+        $target = sanitize_key((string) $target);
+        return in_array($target, array('email', 'confirmation', 'both'), true) ? $target : 'email';
+    }
+
+    private function make_template_uuid()
+    {
+        return function_exists('wp_generate_uuid4') ? wp_generate_uuid4() : uniqid('bet-', true);
     }
 
     private function resolve_file_template_path($slug)
@@ -317,37 +407,149 @@ class Bricks_Email_Templates
         return sanitize_key(str_replace('file_', '', (string) $template_id));
     }
 
-    private function make_template_slug($name, $related_form_id)
+    private function make_template_slug($name, $related_form_id, $template_target = 'email')
     {
-        $base = $related_form_id ? $related_form_id . '-' . $name : $name;
-        $slug = sanitize_title($base);
-        return sanitize_key($slug ? $slug : 'email-template');
+        $template_target = $this->normalize_template_target($template_target);
+        $name_slug = sanitize_title($name);
+        $slug_parts = array_filter(array(
+            sanitize_key($related_form_id),
+            $template_target,
+            $name_slug ? $name_slug : 'email-template',
+        ));
+
+        return sanitize_key(implode('_', $slug_parts));
     }
 
-    public function process_email_template($content, $form_settings)
+    private function make_unique_template_slug($base_slug, $exclude_slug = '')
+    {
+        $base_slug = sanitize_key($base_slug ? $base_slug : 'email-template');
+        $exclude_slug = sanitize_key($exclude_slug);
+        $slug = $base_slug;
+        $counter = 2;
+
+        while ($slug !== $exclude_slug && $this->resolve_file_template_path($slug)) {
+            $slug = $base_slug . '_' . $counter;
+            $counter++;
+        }
+
+        return $slug;
+    }
+
+    private function get_template_slug_for_form_target($form_id, $target)
+    {
+        $template_id = $this->get_mapped_template_id($form_id, $target);
+        if (!$template_id) {
+            return '';
+        }
+
+        $slug = $this->get_template_slug_from_id($template_id);
+        return $this->resolve_file_template_path($slug) ? $slug : '';
+    }
+
+    private function find_template_slug_by_uuid($uuid, $target = '')
+    {
+        $uuid = sanitize_key($uuid);
+        $target = $target !== '' ? $this->normalize_template_target($target) : '';
+        if ($uuid === '') {
+            return '';
+        }
+
+        foreach ($this->get_file_templates() as $template) {
+            if (empty($template['uuid']) || $template['uuid'] !== $uuid) {
+                continue;
+            }
+            if ($target !== '' && $template['template_target'] !== $target) {
+                continue;
+            }
+            return $template['slug'];
+        }
+
+        return '';
+    }
+
+    public function process_email_template($content, $fields_or_settings = array(), $form_settings = array())
     {
         $debug_log = array('Bricks hook triggered');
-        $form_id = '';
-
-        if (is_array($form_settings)) {
-            $form_id = isset($form_settings['id']) ? $form_settings['id'] : (isset($form_settings['formId']) ? $form_settings['formId'] : '');
+        $settings = is_array($form_settings) && !empty($form_settings) ? $form_settings : array();
+        if (empty($settings) && is_array($fields_or_settings) && !$this->looks_like_submitted_fields($fields_or_settings)) {
+            $settings = $fields_or_settings;
         }
+        $fields = $this->get_submitted_fields_from_filter_args($fields_or_settings, $form_settings);
+        $form_id = $this->extract_runtime_form_id($fields, $settings);
+
         if (!$form_id) {
             return $content;
         }
+        self::$active_form_id = sanitize_text_field($form_id);
 
-        $mappings = get_option('bet_form_mappings', array());
-        $template_id = isset($mappings[$form_id]) ? $mappings[$form_id] : '';
+        $template_id = $this->get_mapped_template_id($form_id, 'email');
         if (!$template_id || $template_id === 'none') {
             return $content;
         }
 
-        $fields = isset($form_settings['fields']) ? $form_settings['fields'] : array();
         if (empty($fields) && !empty(self::$captured_fields)) {
             $fields = self::$captured_fields;
         }
 
-        return $this->apply_template_to_content($template_id, $this->normalize_fields($fields), $content, $debug_log);
+        $processed_content = $this->apply_template_to_content($template_id, $this->normalize_fields($fields), $content, $debug_log);
+        if ($processed_content !== $content) {
+            self::$processed_message_hashes[] = md5($processed_content);
+        }
+
+        return $processed_content;
+    }
+
+    private function get_submitted_fields_from_filter_args($fields_or_settings, $form_settings)
+    {
+        if (is_array($fields_or_settings) && $this->looks_like_submitted_fields($fields_or_settings)) {
+            return $fields_or_settings;
+        }
+
+        if (is_array($form_settings) && isset($form_settings['fields']) && is_array($form_settings['fields']) && $this->looks_like_submitted_fields($form_settings['fields'])) {
+            return $form_settings['fields'];
+        }
+
+        return !empty(self::$captured_fields) && is_array(self::$captured_fields) ? self::$captured_fields : array();
+    }
+
+    private function looks_like_submitted_fields($fields)
+    {
+        if (!is_array($fields)) {
+            return false;
+        }
+
+        if (isset($fields['formId']) || isset($fields['form_id'])) {
+            return true;
+        }
+
+        foreach ($fields as $key => $value) {
+            if (is_string($key) && strpos($key, 'form-field-') === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function extract_runtime_form_id($fields = array(), $form_settings = array())
+    {
+        if (is_array($fields)) {
+            foreach (array('formId', 'form_id') as $key) {
+                if (!empty($fields[$key])) {
+                    return sanitize_text_field($fields[$key]);
+                }
+            }
+        }
+
+        if (is_array($form_settings)) {
+            foreach (array('id', 'formId', 'form_id') as $key) {
+                if (!empty($form_settings[$key])) {
+                    return sanitize_text_field($form_settings[$key]);
+                }
+            }
+        }
+
+        return self::$active_form_id;
     }
 
     private function apply_template_to_content($template_id, $fields, $raw_content, $debug_log = array())
@@ -357,20 +559,26 @@ class Bricks_Email_Templates
         $template_file = $this->resolve_file_template_path($slug);
 
         if (!$template_file) {
-            return $raw_content . "\n<!-- BET DEBUG: File template not found: " . esc_html($slug) . " -->";
+            return $raw_content;
         }
 
         $template_content = (string) file_get_contents($template_file);
         $template_content = $this->strip_template_file_metadata($template_content);
 
         if (trim($template_content) === '') {
-            return $raw_content . "\n<!-- BET DEBUG: Empty template generated for ID " . esc_html($template_id) . " -->";
+            return $raw_content;
         }
 
         $template_content = $this->replace_placeholders($template_content, $fields, $raw_content);
-        add_filter('wp_mail_content_type', function () { return 'text/html'; });
+        add_filter('wp_mail_content_type', array($this, 'force_html_mail_content_type'), 999);
 
-        return $template_content . "\n<!-- BET DEBUG SUCCESS: " . esc_html(implode(' | ', $debug_log)) . " -->";
+        return $template_content;
+    }
+
+    public function force_html_mail_content_type($content_type)
+    {
+        remove_filter('wp_mail_content_type', array($this, 'force_html_mail_content_type'), 999);
+        return 'text/html';
     }
 
     private function replace_placeholders($template_content, $fields, $raw_content)
@@ -381,9 +589,13 @@ class Bricks_Email_Templates
 
         foreach ($fields as $field) {
             $field_id = isset($field['id']) ? $field['id'] : '';
+            $field_key = isset($field['key']) ? $field['key'] : '';
             $field_value = isset($field['value']) ? $field['value'] : '';
             if ($field_id) {
                 $template_content = str_replace('{{' . $field_id . '}}', esc_html($field_value), $template_content);
+            }
+            if ($field_key && $field_key !== $field_id) {
+                $template_content = str_replace('{{' . $field_key . '}}', esc_html($field_value), $template_content);
             }
         }
 
@@ -413,25 +625,31 @@ class Bricks_Email_Templates
     public function intercept_wp_mail($args)
     {
         $debug_log = array('WP Mail intercept triggered');
-        if (isset($args['message']) && (strpos($args['message'], 'BET DEBUG') !== false || strpos($args['message'], 'bet-email-wrapper') !== false)) {
+        if (isset($args['message']) && strpos($args['message'], 'bet-email-wrapper') !== false) {
+            return $args;
+        }
+        if (isset($args['message']) && in_array(md5((string) $args['message']), self::$processed_message_hashes, true)) {
+            self::$primary_email_seen = true;
             return $args;
         }
 
-        $form_id = '';
-        if (isset($_POST['form_id'])) {
-            $form_id = sanitize_text_field(wp_unslash($_POST['form_id']));
-        } elseif (isset($_POST['formId'])) {
-            $form_id = sanitize_text_field(wp_unslash($_POST['formId']));
+        $form_id = self::$active_form_id;
+        if ($form_id === '') {
+            return $args;
         }
 
         $fields = !empty(self::$captured_fields) ? self::$captured_fields : array();
-        if (empty($fields) && !empty($args['message']) && is_string($args['message'])) {
-            $fields = $this->parse_raw_content_to_fields($args['message']);
+        if (empty($fields)) {
+            return $args;
         }
         $fields = $this->normalize_fields($fields);
 
-        $mappings = get_option('bet_form_mappings', array());
-        $template_id = ($form_id && isset($mappings[$form_id]) && $mappings[$form_id] !== 'none') ? $mappings[$form_id] : '';
+        if (!self::$primary_email_seen) {
+            self::$primary_email_seen = true;
+            return $args;
+        }
+
+        $template_id = $form_id ? $this->get_mapped_template_id($form_id, 'confirmation') : '';
 
         if (!$template_id || $template_id === 'none') {
             return $args;
@@ -448,9 +666,30 @@ class Bricks_Email_Templates
             } else {
                 $args['headers'] .= "\r\nContent-Type: text/html; charset=UTF-8";
             }
+
+            self::$active_form_id = '';
+            self::$captured_fields = null;
+            self::$primary_email_seen = false;
         }
 
         return $args;
+    }
+
+    private function get_mapped_template_id($form_id, $target)
+    {
+        $form_id = sanitize_text_field($form_id);
+        $target = $this->normalize_template_target($target);
+        $mappings = get_option('bet_form_mappings', array());
+        if (!is_array($mappings)) {
+            return '';
+        }
+
+        $target_key = $form_id . '|' . $target;
+        if (!empty($mappings[$target_key])) {
+            return sanitize_text_field($mappings[$target_key]);
+        }
+
+        return '';
     }
 
     private function normalize_fields($fields)
@@ -462,8 +701,10 @@ class Bricks_Email_Templates
 
         foreach ($fields as $key => $field) {
             if (!is_array($field)) {
+                $field_key = is_string($key) ? sanitize_key($key) : 'field_' . count($normalized);
                 $normalized[] = array(
-                    'id' => sanitize_key(is_string($key) ? $key : 'field_' . count($normalized)),
+                    'id' => $this->normalize_field_placeholder_id($field_key),
+                    'key' => $field_key,
                     'label' => sanitize_text_field(is_string($key) ? $key : 'Field ' . (count($normalized) + 1)),
                     'value' => $field,
                 );
@@ -471,16 +712,28 @@ class Bricks_Email_Templates
             }
 
             $id = isset($field['id']) ? $field['id'] : (is_string($key) ? $key : 'field_' . count($normalized));
+            $field_key = is_string($key) ? sanitize_key($key) : sanitize_key($id);
             $label = isset($field['label']) ? $field['label'] : $id;
             $value = isset($field['value']) ? $field['value'] : (isset($field['raw_value']) ? $field['raw_value'] : '');
             $normalized[] = array(
-                'id' => sanitize_key($id),
+                'id' => $this->normalize_field_placeholder_id($id),
+                'key' => $field_key,
                 'label' => sanitize_text_field($label),
                 'value' => is_array($value) ? implode(', ', array_map('sanitize_text_field', $value)) : (string) $value,
             );
         }
 
         return $normalized;
+    }
+
+    private function normalize_field_placeholder_id($id)
+    {
+        $id = sanitize_key($id);
+        if (strpos($id, 'form-field-') === 0) {
+            return substr($id, 11);
+        }
+
+        return $id;
     }
 
     private function parse_raw_content_to_fields($content)
@@ -540,8 +793,11 @@ class Bricks_Email_Templates
                 if ($template['slug'] === $editing_slug) {
                     $content = file_get_contents($template['file']);
                     $template['content'] = $this->strip_template_file_metadata($content);
+                    $template['current_file'] = $template['file'];
                     if (empty($template['related_form_id'])) {
-                        $template['related_form_id'] = $this->get_mapped_form_id_for_template_slug($editing_slug);
+                        $mapped = $this->get_mapped_template_context_for_slug($editing_slug);
+                        $template['related_form_id'] = $mapped['form_id'];
+                        $template['template_target'] = $mapped['target'];
                     }
                     $editing_template = (object) $template;
                     break;
@@ -554,21 +810,43 @@ class Bricks_Email_Templates
         include BET_PLUGIN_DIR . 'admin/views/builder-page.php';
     }
 
-    private function get_mapped_form_id_for_template_slug($slug)
+    public function ajax_find_template_for_target()
+    {
+        check_ajax_referer('bet_ajax_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $form_id = sanitize_text_field(wp_unslash($_POST['related_form_id'] ?? ''));
+        $target = $this->normalize_template_target(wp_unslash($_POST['template_target'] ?? 'email'));
+        if ($form_id === '') {
+            wp_send_json_success(array('slug' => ''));
+        }
+
+        wp_send_json_success(array(
+            'slug' => $this->get_template_slug_for_form_target($form_id, $target),
+        ));
+    }
+
+    private function get_mapped_template_context_for_slug($slug)
     {
         $target = 'file_' . sanitize_key($slug);
         $mappings = get_option('bet_form_mappings', array());
         if (!is_array($mappings)) {
-            return '';
+            return array('form_id' => '', 'target' => 'email');
         }
 
-        foreach ($mappings as $form_id => $template_id) {
+        foreach ($mappings as $mapping_key => $template_id) {
             if ($template_id === $target) {
-                return sanitize_text_field($form_id);
+                $parts = explode('|', (string) $mapping_key, 2);
+                return array(
+                    'form_id' => sanitize_text_field($parts[0]),
+                    'target' => isset($parts[1]) ? $this->normalize_template_target($parts[1]) : 'email',
+                );
             }
         }
 
-        return '';
+        return array('form_id' => '', 'target' => 'email');
     }
 
     public function ajax_save_template()
@@ -585,19 +863,98 @@ class Bricks_Email_Templates
         if (trim($custom_html) === '') {
             wp_send_json_error('HTML template is required.');
         }
-        if (preg_match('/<\?(php|=)?/i', $custom_html)) {
+        if ($this->contains_php_code($custom_html)) {
             wp_send_json_error('PHP code is not allowed in email templates.');
         }
 
         $related_form_id = sanitize_text_field(wp_unslash($_POST['related_form_id'] ?? ''));
+        $template_target = $this->normalize_template_target(wp_unslash($_POST['template_target'] ?? 'email'));
+        $template_uuid = sanitize_key(wp_unslash($_POST['template_uuid'] ?? ''));
         $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
         if ($name === '') {
             wp_send_json_error('Template name is required.');
         }
 
         $slug = isset($_POST['template_slug']) ? sanitize_key(wp_unslash($_POST['template_slug'])) : '';
-        if (!$slug) {
-            $slug = $this->make_template_slug($name, $related_form_id);
+        if ($template_target === 'both') {
+            $email_result = $this->save_template_file_for_target($slug, $template_uuid, $name, $related_form_id, 'email', $custom_html);
+            $confirmation_result = $this->save_template_file_for_target($slug, '', $name, $related_form_id, 'confirmation', $custom_html);
+            $primary_result = $email_result;
+            if ($slug) {
+                if ($confirmation_result['slug'] === $slug) {
+                    $primary_result = $confirmation_result;
+                } elseif ($email_result['slug'] === $slug) {
+                    $primary_result = $email_result;
+                }
+            }
+
+            wp_send_json_success(array(
+                'message' => 'Email and confirmation templates saved.',
+                'slug' => $primary_result['slug'],
+                'uuid' => $primary_result['uuid'],
+                'path' => $primary_result['path'],
+                'created' => array($email_result, $confirmation_result),
+            ));
+        }
+
+        $result = $this->save_template_file_for_target($slug, $template_uuid, $name, $related_form_id, $template_target, $custom_html);
+
+        wp_send_json_success(array(
+            'message' => 'Template file saved.',
+            'slug' => $result['slug'],
+            'uuid' => $result['uuid'],
+            'path' => $result['path'],
+        ));
+    }
+
+    private function save_template_file_for_target($slug, $template_uuid, $name, $related_form_id, $template_target, $custom_html)
+    {
+        $template_target = $this->normalize_template_target($template_target);
+        $template_uuid = sanitize_key($template_uuid);
+        $requested_slug = $slug;
+        $desired_slug = $this->make_template_slug($name, $related_form_id, $template_target);
+        $resolved_slug = '';
+
+        if ($template_uuid !== '') {
+            $resolved_slug = $this->find_template_slug_by_uuid($template_uuid, $template_target);
+        }
+
+        if (!$resolved_slug && $slug) {
+            $existing_path_for_meta = $this->resolve_file_template_path($slug);
+            if ($existing_path_for_meta) {
+                $template_index = $this->get_template_index();
+                $existing_meta = $this->get_template_meta($slug, $existing_path_for_meta, isset($template_index[$slug]) ? $template_index[$slug] : array());
+                $existing_form_id = isset($existing_meta['related_form_id']) ? (string) $existing_meta['related_form_id'] : '';
+                $existing_target = isset($existing_meta['template_target']) ? $this->normalize_template_target($existing_meta['template_target']) : 'email';
+                if ($existing_form_id === $related_form_id && $existing_target === $template_target) {
+                    $resolved_slug = $slug;
+                    if ($template_uuid === '' && !empty($existing_meta['uuid'])) {
+                        $template_uuid = $existing_meta['uuid'];
+                    }
+                }
+            }
+        }
+
+        if (!$resolved_slug && $template_uuid === '' && $related_form_id !== '') {
+            $resolved_slug = $this->get_template_slug_for_form_target($related_form_id, $template_target);
+        }
+
+        if (!$resolved_slug && $template_uuid === '') {
+            $desired_path = $this->resolve_file_template_path($desired_slug);
+            if ($desired_path) {
+                $template_index = isset($template_index) ? $template_index : $this->get_template_index();
+                $desired_meta = $this->get_template_meta($desired_slug, $desired_path, isset($template_index[$desired_slug]) ? $template_index[$desired_slug] : array());
+                $desired_form_id = isset($desired_meta['related_form_id']) ? (string) $desired_meta['related_form_id'] : '';
+                $desired_target = isset($desired_meta['template_target']) ? $this->normalize_template_target($desired_meta['template_target']) : 'email';
+                if ($desired_form_id === $related_form_id && $desired_target === $template_target) {
+                    $resolved_slug = $desired_slug;
+                }
+            }
+        }
+
+        $slug = $resolved_slug ? $resolved_slug : $this->make_unique_template_slug($desired_slug, $requested_slug);
+        if ($template_uuid === '') {
+            $template_uuid = $this->make_template_uuid();
         }
 
         $existing_path = $this->resolve_file_template_path($slug);
@@ -620,24 +977,27 @@ class Bricks_Email_Templates
             wp_send_json_error('Invalid template path.');
         }
 
-        $written = file_put_contents($target_path, $this->build_template_file_content($name, $related_form_id, $custom_html));
+        $written = file_put_contents($target_path, $this->build_template_file_content($custom_html));
         if ($written === false) {
             wp_send_json_error('Template file could not be written.');
         }
 
-        $this->sync_template_form_mapping($slug, $related_form_id);
+        $this->sync_template_index($slug, $template_uuid, $name, $related_form_id, $template_target);
+        $this->sync_template_form_mapping($slug, $related_form_id, $template_target);
 
-        wp_send_json_success(array(
-            'message' => 'Template file saved.',
+        return array(
             'slug' => $slug,
+            'uuid' => $template_uuid,
             'path' => $target_path,
-        ));
+            'target' => $template_target,
+        );
     }
 
-    private function sync_template_form_mapping($slug, $related_form_id)
+    private function sync_template_form_mapping($slug, $related_form_id, $template_target)
     {
         $template_id = 'file_' . sanitize_key($slug);
         $related_form_id = sanitize_text_field($related_form_id);
+        $template_target = $this->normalize_template_target($template_target);
         $mappings = get_option('bet_form_mappings', array());
         if (!is_array($mappings)) {
             $mappings = array();
@@ -645,15 +1005,38 @@ class Bricks_Email_Templates
 
         foreach ($mappings as $form_id => $mapped_template_id) {
             if ($mapped_template_id === $template_id) {
-                unset($mappings[$form_id]);
+                $parts = explode('|', (string) $form_id, 2);
+                $mapped_target = isset($parts[1]) ? $this->normalize_template_target($parts[1]) : 'email';
+                if ($template_target === 'both' || $mapped_target === $template_target) {
+                    unset($mappings[$form_id]);
+                }
             }
         }
 
         if ($related_form_id !== '') {
-            $mappings[$related_form_id] = $template_id;
+            $conflicting_keys = array($related_form_id, $related_form_id . '|' . $template_target);
+
+            foreach ($conflicting_keys as $conflicting_key) {
+                unset($mappings[$conflicting_key]);
+            }
+
+            $mappings[$related_form_id . '|' . $template_target] = $template_id;
         }
 
         update_option('bet_form_mappings', $mappings);
+    }
+
+    private function sync_template_index($slug, $uuid, $name, $related_form_id, $template_target)
+    {
+        $slug = sanitize_key($slug);
+        $index = $this->get_template_index();
+        $index[$slug] = array(
+            'uuid' => sanitize_key($uuid),
+            'name' => sanitize_text_field($name),
+            'related_form_id' => sanitize_text_field($related_form_id),
+            'template_target' => $this->normalize_template_target($template_target),
+        );
+        $this->save_template_index($index);
     }
 
     public function ajax_delete_template()
@@ -686,12 +1069,20 @@ class Bricks_Email_Templates
     public function ajax_preview_template()
     {
         check_ajax_referer('bet_ajax_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
         $form_id = sanitize_text_field(wp_unslash($_POST['related_form_id'] ?? ''));
         $sample_fields = $this->get_sample_fields_for_form($form_id);
         $custom_html = isset($_POST['custom_html']) ? wp_unslash($_POST['custom_html']) : '';
         if (trim($custom_html) === '') {
             wp_send_json_error('HTML template is required.');
         }
+        if ($this->contains_php_code($custom_html)) {
+            wp_send_json_error('PHP code is not allowed in email templates.');
+        }
+
         wp_send_json_success($this->replace_placeholders($custom_html, $sample_fields, ''));
     }
 

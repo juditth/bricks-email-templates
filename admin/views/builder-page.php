@@ -10,9 +10,12 @@ if (!defined('ABSPATH')) {
 $is_editing = !empty($editing_template);
 $template = $is_editing ? $editing_template : null;
 $template_slug = $is_editing && isset($template->slug) ? (string) $template->slug : '';
+$template_uuid = $is_editing && isset($template->uuid) ? (string) $template->uuid : '';
 $template_name = $is_editing && isset($template->name) ? (string) $template->name : '';
 $custom_html = $is_editing && isset($template->content) ? (string) $template->content : '';
 $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $template->related_form_id : '';
+$template_target = $is_editing && isset($template->template_target) ? (string) $template->template_target : 'email';
+$current_file = $is_editing && isset($template->current_file) ? (string) $template->current_file : '';
 ?>
 
 <div class="wrap bet-builder-wrap">
@@ -27,7 +30,7 @@ $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $
 
     <div class="bet-builder-header-actions">
         <div class="bet-toolbar">
-            <button type="button" class="button button-secondary bet-preview-btn-top">Preview</button>
+            <button type="button" class="button button-secondary bet-preview-btn-top">Refresh preview</button>
             <button type="button" class="button button-primary bet-save-btn-top">Save template</button>
         </div>
     </div>
@@ -39,14 +42,23 @@ $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $
 
                 <form id="bet-template-form">
                     <input type="hidden" id="template_slug" value="<?php echo esc_attr($template_slug); ?>">
+                    <input type="hidden" id="template_uuid" value="<?php echo esc_attr($template_uuid); ?>">
 
                     <div class="bet-form-group">
                         <label for="existing_template_slug">Load saved template</label>
                         <select id="existing_template_slug" class="bet-input">
                             <option value="">Create new template</option>
                             <?php foreach ($templates as $tmpl): ?>
+                                <?php
+                                $saved_template_target = !empty($tmpl['template_target']) ? (string) $tmpl['template_target'] : 'email';
+                                $saved_template_target_label = array(
+                                    'email' => 'Email',
+                                    'confirmation' => 'Confirmation email',
+                                    'both' => 'Both',
+                                )[$saved_template_target] ?? 'Email';
+                                ?>
                                 <option value="<?php echo esc_attr($tmpl['slug']); ?>" <?php selected($template_slug, $tmpl['slug']); ?>>
-                                    <?php echo esc_html($tmpl['name'] . ' (' . basename($tmpl['file']) . ')'); ?>
+                                    <?php echo esc_html($tmpl['name'] . ' - ' . $saved_template_target_label . ' (' . basename($tmpl['file']) . ')'); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -56,7 +68,7 @@ $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $
                     <div class="bet-form-group">
                         <label for="template_name">Template name *</label>
                         <input type="text" id="template_name" class="bet-input" required value="<?php echo esc_attr($template_name); ?>" placeholder="Customer notification">
-                        <small class="description">This name is stored in a metadata comment inside the template file.</small>
+                        <small class="description">This name is stored in WordPress settings; changing it does not rename the HTML file.</small>
                     </div>
 
                     <div class="bet-form-group">
@@ -64,10 +76,27 @@ $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $
                         <select id="related_form_id" class="bet-input">
                             <option value="">None</option>
                             <?php foreach ($forms as $form): ?>
-                                <option value="<?php echo esc_attr($form['id']); ?>" <?php selected($related_form_id, $form['id']); ?>><?php echo esc_html($form['name'] . ' (' . $form['id'] . ')'); ?></option>
+                                <?php
+                                $form_page_title = !empty($form['page_title']) ? (string) $form['page_title'] : '';
+                                $form_label = $form['name'] . ' ' . $form['id'];
+                                if ($form_page_title !== '') {
+                                    $form_label .= ' (' . $form_page_title . ')';
+                                }
+                                ?>
+                                <option value="<?php echo esc_attr($form['id']); ?>" <?php selected($related_form_id, $form['id']); ?>><?php echo esc_html($form_label); ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="description">The selected form controls available placeholders and is saved as metadata in the template file.</small>
+                        <small class="description">The selected form controls available placeholders and is stored in WordPress settings.</small>
+                    </div>
+
+                    <div class="bet-form-group">
+                        <label for="template_target">Template target/receiver</label>
+                        <select id="template_target" class="bet-input">
+                            <option value="email" <?php selected($template_target, 'email'); ?>>Email</option>
+                            <option value="confirmation" <?php selected($template_target, 'confirmation'); ?>>Confirmation email</option>
+                            <option value="both" <?php selected($template_target, 'both'); ?>>Both</option>
+                        </select>
+                        <small class="description">Choose which Bricks email this template should replace for the selected form.</small>
                     </div>
 
                     <div class="bet-placeholder-panel">
@@ -80,10 +109,15 @@ $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $
                         <label for="custom_html">HTML template *</label>
                         <textarea id="custom_html" class="bet-textarea bet-code-textarea bet-placeholder-target" rows="26" spellcheck="false" placeholder="<!DOCTYPE html>\n<html>\n<body>\n  {{all_fields}}\n</body>\n</html>"><?php echo esc_textarea($custom_html); ?></textarea>
                         <small class="description">Use HTML, inline CSS, images, and placeholders. PHP code is not executed.</small>
+                        <?php if ($current_file !== ''): ?>
+                            <small class="description">Editing file: <code><?php echo esc_html($current_file); ?></code></small>
+                        <?php else: ?>
+                            <small class="description">Editing file: the file will be created after saving.</small>
+                        <?php endif; ?>
                     </div>
 
                     <div class="bet-form-actions">
-                        <button type="button" class="button button-secondary" id="bet-preview-btn">Preview</button>
+                        <button type="button" class="button button-secondary" id="bet-preview-btn">Refresh preview</button>
                         <button type="submit" class="button button-primary">Save template</button>
                     </div>
                 </form>
@@ -93,7 +127,7 @@ $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $
         <div class="bet-builder-preview-panel">
             <div class="bet-card bet-sticky-preview">
                 <h3>Preview</h3>
-                <div id="bet-preview-container" class="bet-preview"><p class="bet-preview-placeholder">Click Preview to render the template.</p></div>
+                <div id="bet-preview-container" class="bet-preview"><p class="bet-preview-placeholder">Click Refresh preview to render the template.</p></div>
             </div>
         </div>
     </div>

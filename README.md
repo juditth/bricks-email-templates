@@ -21,7 +21,7 @@ The plugin blocks activation when Bricks is not active.
 
 ## Template Storage
 
-Templates are not stored as template records in the database.
+Template HTML is not stored in the database.
 
 They live in your active theme folder:
 
@@ -32,7 +32,7 @@ wp-content/themes/your-parent-theme/bricks-email-templates/contact.html
 
 Use a child theme whenever possible. The child theme folder wins over the parent theme folder when a file has the same name.
 
-The plugin still uses normal WordPress options to store form-to-template mappings.
+The plugin uses normal WordPress options to store template labels, stable IDs, targets, and form-to-template mappings.
 
 ## Builder
 
@@ -41,10 +41,11 @@ Go to **Bricks > Email Template Builder**.
 The builder edits HTML template files only:
 
 1. Select a Bricks form as the placeholder source.
-2. Enter any template name you want. It is stored in a metadata comment inside the template file.
-3. Paste or edit your HTML.
-4. Click placeholders to insert them at the cursor position in the HTML editor.
-5. Save the template. A `.html` template file is created or updated in the theme template folder and assigned to the selected Bricks form.
+2. Choose the template target: Email, Confirmation email, or Both.
+3. Enter any template name you want. It is stored in WordPress settings, so changing it does not rename the HTML file.
+4. Paste or edit your HTML.
+5. Click placeholders to insert them at the cursor position in the HTML editor.
+6. Save the template. A `.html` template file is created or updated in the theme template folder and assigned to the selected Bricks form target.
 
 ## Placeholders
 
@@ -79,7 +80,7 @@ Examples:
 
 - Use inline CSS for email compatibility.
 - Do not edit templates inside the plugin folder; plugin files can be replaced during plugin updates.
-- Template metadata is stored as an HTML comment at the top of each generated template file.
+- Template HTML files stay clean. Template labels, stable IDs, targets, and mappings are stored in WordPress options.
 
 ## License
 
