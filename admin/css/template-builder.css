@@ -102,6 +102,31 @@
     cursor: pointer;
 }
 
+.bet-template-notes {
+    margin: 18px 0 0;
+    padding: 14px 16px;
+    border: 1px solid #c3c4c7;
+    background: #f6f7f7;
+    color: #3c434a;
+}
+
+.bet-template-notes p {
+    margin: 0 0 10px;
+}
+
+.bet-template-notes p:last-child {
+    margin-bottom: 0;
+}
+
+.bet-template-notes ul {
+    margin: 8px 0 0 18px;
+    list-style: disc;
+}
+
+.bet-template-notes li {
+    margin: 4px 0;
+}
+
 .bet-form-actions {
     display: flex;
     gap: 8px;

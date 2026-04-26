@@ -52,6 +52,7 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                                 <?php
                                 $saved_template_target = !empty($tmpl['template_target']) ? (string) $tmpl['template_target'] : 'email';
                                 $saved_template_target_label = array(
+                                    'none' => 'None',
                                     'email' => 'Email',
                                     'confirmation' => 'Confirmation email',
                                     'both' => 'Both',
@@ -92,11 +93,12 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                     <div class="bet-form-group">
                         <label for="template_target">Template target/receiver</label>
                         <select id="template_target" class="bet-input">
+                            <option value="none" <?php selected($template_target, 'none'); ?>>None</option>
                             <option value="email" <?php selected($template_target, 'email'); ?>>Email</option>
                             <option value="confirmation" <?php selected($template_target, 'confirmation'); ?>>Confirmation email</option>
                             <option value="both" <?php selected($template_target, 'both'); ?>>Both</option>
                         </select>
-                        <small class="description">Choose which Bricks email this template should replace for the selected form.</small>
+                        <small class="description">Choose which Bricks email this template should replace for the selected form. Select None to save the file without assigning it to any email.</small>
                     </div>
 
                     <div class="bet-placeholder-panel">
@@ -113,6 +115,18 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                             <small class="description">Editing file: <code><?php echo esc_html($current_file); ?></code></small>
                         <?php else: ?>
                             <small class="description">Editing file: the file will be created after saving.</small>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="bet-template-notes">
+                        <p><strong>Template priority:</strong> If a template is mapped here for the selected Bricks form and target, this plugin overrides the matching Bricks email body. Keep the Bricks email action enabled so Bricks still sends the email.</p>
+                        <p><strong>Template files:</strong> All HTML templates are stored in the theme folder <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>. The active child theme is used first; the parent theme is checked after that.</p>
+                        <?php if (!empty($template_dirs) && is_array($template_dirs)): ?>
+                            <ul>
+                                <?php foreach ($template_dirs as $dir): ?>
+                                    <li><code><?php echo esc_html($dir); ?></code></li>
+                                <?php endforeach; ?>
+                            </ul>
                         <?php endif; ?>
                     </div>
 
