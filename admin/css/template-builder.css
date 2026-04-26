@@ -115,6 +115,11 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.bet-form-group .description {
+    display: block;
+    margin-top: 6px;
+}
+
 .bet-textarea {
     resize: vertical;
     font-family: inherit;
@@ -265,8 +270,7 @@
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     padding: 15px;
-    max-height: 600px;
-    overflow-y: auto;
+    overflow: visible;
 }
 
 .bet-preview-placeholder {
@@ -279,8 +283,9 @@
 .bet-preview iframe {
     width: 100%;
     border: none;
-    min-height: 500px;
+    min-height: 120px;
     border-radius: 4px;
+    display: block;
 }
 
 /* Templates List */

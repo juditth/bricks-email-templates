@@ -1,36 +1,27 @@
 /**
- * Email Template Builder JavaScript
+ * HTML Email Template Builder JavaScript
  */
 
 jQuery(document).ready(function ($) {
     let lastFocusedTarget = $('#custom_html');
 
-    $('.bet-color-picker').wpColorPicker();
-
-    $('.bet-placeholder-target, #custom_html, #email_subject, #header_text, #intro_text, #footer_text').on('focus click', function () {
+    $('#custom_html').on('focus click keyup mouseup', function () {
         lastFocusedTarget = $(this);
     });
-
-    function updateModeVisibility() {
-        const mode = $('input[name="template_mode"]:checked').val();
-        $('#bet-html-fields').toggle(mode === 'html');
-        $('#bet-visual-fields').toggle(mode !== 'html');
-    }
-
-    $('input[name="template_mode"]').on('change', updateModeVisibility);
-    updateModeVisibility();
 
     function renderPlaceholders() {
         const formId = $('#related_form_id').val();
         const forms = (window.betAjax && Array.isArray(betAjax.forms)) ? betAjax.forms : [];
         const form = forms.find(function (item) { return item.id === formId; });
-        const fields = form && Array.isArray(form.fields) ? form.fields : [
-            { id: 'name', label: 'Name' },
-            { id: 'email', label: 'Email' },
-            { id: 'message', label: 'Message' }
-        ];
+        const fields = form && Array.isArray(form.fields) ? form.fields : [];
 
         const $list = $('#bet-placeholder-list').empty();
+        if (!fields.length) {
+            $('.bet-placeholder-panel').hide();
+            return;
+        }
+
+        $('.bet-placeholder-panel').show();
         fields.forEach(function (field) {
             if (!field.id) {
                 return;
@@ -46,35 +37,27 @@ jQuery(document).ready(function ($) {
             .appendTo($list);
     }
 
-    $('#related_form_id').on('change', renderPlaceholders);
+    $('#related_form_id').on('change', function () {
+        renderPlaceholders();
+    });
     renderPlaceholders();
+
+    $('#existing_template_slug').on('change', function () {
+        const slug = $(this).val();
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', 'bricks-email-builder');
+        url.searchParams.set('preview', '1');
+        if (slug) {
+            url.searchParams.set('edit', slug);
+        } else {
+            url.searchParams.delete('edit');
+            url.searchParams.delete('preview');
+        }
+        window.location.href = url.toString();
+    });
 
     $(document).on('click', '.bet-placeholder-chip', function () {
         insertAtCursor(lastFocusedTarget && lastFocusedTarget.length ? lastFocusedTarget : $('#custom_html'), $(this).data('placeholder'));
-    });
-
-    let mediaUploader;
-    $('#upload_logo_btn').on('click', function (e) {
-        e.preventDefault();
-        if (mediaUploader) {
-            mediaUploader.open();
-            return;
-        }
-        mediaUploader = wp.media({
-            title: 'Select logo',
-            button: { text: 'Use this logo' },
-            multiple: false
-        });
-        mediaUploader.on('select', function () {
-            const attachment = mediaUploader.state().get('selection').first().toJSON();
-            $('#logo_url').val(attachment.url);
-            if ($('.bet-logo-preview').length) {
-                $('.bet-logo-preview').attr('src', attachment.url);
-            } else {
-                $('#logo_preview_container').html('<img src="' + escapeHtml(attachment.url) + '" class="bet-logo-preview" alt="Logo preview">');
-            }
-        });
-        mediaUploader.open();
     });
 
     $('.bet-save-btn-top').on('click', function (e) {
@@ -112,9 +95,8 @@ jQuery(document).ready(function ($) {
                 iframeDoc.open();
                 iframeDoc.write(response.data);
                 iframeDoc.close();
-                iframe.on('load', function () {
-                    iframe.css('min-height', Math.max(500, iframeDoc.body.scrollHeight) + 'px');
-                });
+                resizePreviewIframe(iframe);
+                iframe.on('load', function () { resizePreviewIframe(iframe); });
             },
             error: function () {
                 $btn.prop('disabled', false).text(originalText);
@@ -133,6 +115,10 @@ jQuery(document).ready(function ($) {
             showMessage('Template name is required.', 'error');
             return;
         }
+        if (!formData.custom_html) {
+            showMessage('HTML template is required.', 'error');
+            return;
+        }
 
         $submitBtn.prop('disabled', true).text('Saving...');
         $.ajax({
@@ -142,7 +128,16 @@ jQuery(document).ready(function ($) {
             success: function (response) {
                 if (response.success) {
                     showMessage(response.data.message, 'success');
-                    setTimeout(function () { window.location.href = 'admin.php?page=bricks-email-builder'; }, 700);
+                    const slug = response.data && response.data.slug ? response.data.slug : $('#template_slug').val();
+                    if (slug) {
+                        $('#template_slug').val(slug);
+                        $('#existing_template_slug').val(slug);
+                        setTimeout(function () {
+                            window.location.href = 'admin.php?page=bricks-email-builder&edit=' + encodeURIComponent(slug) + '&preview=1';
+                        }, 500);
+                    } else {
+                        $submitBtn.prop('disabled', false).text('Save template');
+                    }
                     return;
                 }
                 showMessage('Save failed: ' + response.data, 'error');
@@ -155,56 +150,12 @@ jQuery(document).ready(function ($) {
         });
     });
 
-    $('.bet-delete-btn').on('click', function (e) {
-        e.preventDefault();
-        const $btn = $(this);
-        const templateId = $btn.data('id');
-        const templateName = $btn.data('name');
-        if (!confirm('Delete template "' + templateName + '"?')) {
-            return;
-        }
-        $btn.prop('disabled', true).text('Deleting...');
-        $.ajax({
-            url: betAjax.ajaxurl,
-            type: 'POST',
-            data: { action: 'bet_delete_template', nonce: betAjax.nonce, template_id: templateId },
-            success: function (response) {
-                if (response.success) {
-                    showMessage('Template deleted.', 'success');
-                    $btn.closest('.bet-template-item').fadeOut(300, function () { $(this).remove(); });
-                    return;
-                }
-                showMessage('Delete failed.', 'error');
-                $btn.prop('disabled', false).text('Delete');
-            },
-            error: function () {
-                showMessage('Delete failed.', 'error');
-                $btn.prop('disabled', false).text('Delete');
-            }
-        });
-    });
-
     function getFormData() {
-        const mode = $('input[name="template_mode"]:checked').val();
         return {
-            template_id: $('#template_id').val(),
-            name: $('#template_name').val(),
+            template_slug: $('#template_slug').val(),
+            name: String($('#template_name').val() || '').trim(),
             related_form_id: $('#related_form_id').val(),
-            template_mode: mode,
-            custom_html: mode === 'html' ? $('#custom_html').val() : '',
-            layout: $('input[name="layout"]:checked').val(),
-            color_header_start: $('#color_header_start').val(),
-            color_header_end: $('#color_header_end').val(),
-            color_accent: $('#color_accent').val(),
-            color_background: $('#color_background').val(),
-            color_title: $('#color_title').val(),
-            color_text: $('#color_text').val(),
-            color_footer: $('#color_footer').val(),
-            logo_url: $('#logo_url').val(),
-            email_subject: $('#email_subject').val(),
-            header_text: $('#header_text').val(),
-            intro_text: $('#intro_text').val(),
-            footer_text: $('#footer_text').val()
+            custom_html: String($('#custom_html').val() || '').trim()
         };
     }
 
@@ -225,6 +176,25 @@ jQuery(document).ready(function ($) {
         $target.trigger('focus').trigger('input');
     }
 
+    function resizePreviewIframe($iframe) {
+        const iframe = $iframe[0];
+        if (!iframe) {
+            return;
+        }
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        const body = doc.body;
+        const html = doc.documentElement;
+        const height = Math.max(
+            body ? body.scrollHeight : 0,
+            body ? body.offsetHeight : 0,
+            html ? html.clientHeight : 0,
+            html ? html.scrollHeight : 0,
+            html ? html.offsetHeight : 0,
+            120
+        );
+        $iframe.height(height + 24);
+    }
+
     function showMessage(message, type) {
         const $message = $('<div class="bet-message bet-message-' + type + '">' + escapeHtml(message) + '</div>');
         $('.bet-builder-form-panel .bet-card').first().prepend($message);
@@ -235,5 +205,9 @@ jQuery(document).ready(function ($) {
         return String(value).replace(/[&<>"']/g, function (char) {
             return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
         });
+    }
+
+    if (new URLSearchParams(window.location.search).get('preview') === '1' && String($('#custom_html').val() || '').trim()) {
+        $('#bet-preview-btn').trigger('click');
     }
 });
