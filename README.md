@@ -61,6 +61,28 @@ When a template is mapped in this plugin, it replaces the matching Bricks email 
 - `Both` creates or updates separate mappings for both targets.
 - `None` disconnects the template from sending.
 
+## Automatic Updates
+
+The plugin bundles Plugin Update Checker and reads update metadata from:
+
+```text
+https://vyladeny-web.cz/plugins/bricks-email-templates/info.json
+```
+
+The update metadata should point to the release ZIP package and use the `bricks-email-templates` slug, for example:
+
+```json
+{
+  "name": "Bricks Email Templates",
+  "slug": "bricks-email-templates",
+  "version": "1.0.1",
+  "download_url": "https://vyladeny-web.cz/plugins/bricks-email-templates/bricks-email-templates.zip",
+  "requires": "6.0",
+  "tested": "6.8",
+  "requires_php": "8.0"
+}
+```
+
 ## Placeholders
 
 ### `{{all_fields}}`

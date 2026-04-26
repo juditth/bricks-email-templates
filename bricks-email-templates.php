@@ -23,6 +23,13 @@ define('BET_VERSION', '1.0.0');
 define('BET_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BET_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BET_THEME_TEMPLATES_FOLDER', 'bricks-email-templates');
+define('BET_UPDATE_INFO_URL', 'https://vyladeny-web.cz/plugins/bricks-email-templates/info.json');
+
+$bet_update_checker = BET_PLUGIN_DIR . 'plugin-update-checker/plugin-update-checker.php';
+if (file_exists($bet_update_checker)) {
+    require_once $bet_update_checker;
+}
+unset($bet_update_checker);
 
 class Bricks_Email_Templates
 {
@@ -32,6 +39,7 @@ class Bricks_Email_Templates
     private static $active_form_id = '';
     private static $primary_email_seen = false;
     private static $processed_message_hashes = array();
+    private $update_checker = null;
 
     public static function get_instance()
     {
@@ -44,7 +52,21 @@ class Bricks_Email_Templates
     private function __construct()
     {
         register_activation_hook(__FILE__, array($this, 'activate'));
+        $this->init_update_checker();
         $this->init_hooks();
+    }
+
+    private function init_update_checker()
+    {
+        if (!class_exists('YahnisElsts\PluginUpdateChecker\v5\PucFactory')) {
+            return;
+        }
+
+        $this->update_checker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+            BET_UPDATE_INFO_URL,
+            __FILE__,
+            'bricks-email-templates'
+        );
     }
 
     private function init_hooks()
