@@ -14,22 +14,45 @@ $template_uuid = $is_editing && isset($template->uuid) ? (string) $template->uui
 $template_name = $is_editing && isset($template->name) ? (string) $template->name : '';
 $custom_html = $is_editing && isset($template->content) ? (string) $template->content : '';
 $related_form_id = $is_editing && isset($template->related_form_id) ? (string) $template->related_form_id : '';
-$template_target = $is_editing && isset($template->template_target) ? (string) $template->template_target : 'email';
+$template_target = $is_editing && isset($template->template_target) ? (string) $template->template_target : 'none';
 $current_file = $is_editing && isset($template->current_file) ? (string) $template->current_file : '';
+$target_email_checked = in_array($template_target, array('email', 'both'), true);
+$target_confirmation_checked = in_array($template_target, array('confirmation', 'both'), true);
 ?>
 
 <div class="wrap bet-builder-wrap">
     <h1>HTML Email Template Builder</h1>
+    <div id="bet-message-container" class="bet-message-container"></div>
     <p>Create, edit, and assign HTML email template files in your active child theme or parent theme.</p>
 
     <?php if (empty($template_dir)): ?>
         <div class="notice notice-error"><p>No writable theme template directory was found. Create <code>bricks-email-templates</code> in your child theme and make it writable.</p></div>
-    <?php else: ?>
-        <div class="notice notice-info inline"><p>Templates are saved to: <code><?php echo esc_html($template_dir); ?></code></p></div>
     <?php endif; ?>
 
     <div class="bet-builder-header-actions">
-        <div class="bet-toolbar">
+        <div class="bet-toolbar bet-template-switcher">
+            <button type="button" class="button button-secondary" id="bet-create-template-btn">Create new template</button>
+            <span class="bet-template-switcher-text">or select existing one:</span>
+            <label class="screen-reader-text" for="existing_template_slug">Select existing template to edit</label>
+            <select id="existing_template_slug" class="bet-input bet-existing-template-select">
+                <option value="">Select existing template to edit</option>
+                <?php foreach ($templates as $tmpl): ?>
+                    <?php
+                    $saved_template_target = !empty($tmpl['template_target']) ? (string) $tmpl['template_target'] : 'email';
+                    $saved_template_target_label = array(
+                        'none' => 'Unassigned',
+                        'email' => 'Email',
+                        'confirmation' => 'Confirmation email',
+                        'both' => 'Both',
+                    )[$saved_template_target] ?? 'Email';
+                    ?>
+                    <option value="<?php echo esc_attr($tmpl['slug']); ?>" <?php selected($template_slug, $tmpl['slug']); ?>>
+                        <?php echo esc_html($tmpl['name'] . ' - ' . $saved_template_target_label . ' (' . basename($tmpl['file']) . ')'); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="bet-toolbar bet-toolbar-primary">
             <button type="button" class="button button-secondary bet-preview-btn-top">Refresh preview</button>
             <button type="button" class="button button-primary bet-save-btn-top">Save template</button>
         </div>
@@ -43,28 +66,6 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                 <form id="bet-template-form">
                     <input type="hidden" id="template_slug" value="<?php echo esc_attr($template_slug); ?>">
                     <input type="hidden" id="template_uuid" value="<?php echo esc_attr($template_uuid); ?>">
-
-                    <div class="bet-form-group">
-                        <label for="existing_template_slug">Load saved template</label>
-                        <select id="existing_template_slug" class="bet-input">
-                            <option value="">Create new template</option>
-                            <?php foreach ($templates as $tmpl): ?>
-                                <?php
-                                $saved_template_target = !empty($tmpl['template_target']) ? (string) $tmpl['template_target'] : 'email';
-                                $saved_template_target_label = array(
-                                    'none' => 'None',
-                                    'email' => 'Email',
-                                    'confirmation' => 'Confirmation email',
-                                    'both' => 'Both',
-                                )[$saved_template_target] ?? 'Email';
-                                ?>
-                                <option value="<?php echo esc_attr($tmpl['slug']); ?>" <?php selected($template_slug, $tmpl['slug']); ?>>
-                                    <?php echo esc_html($tmpl['name'] . ' - ' . $saved_template_target_label . ' (' . basename($tmpl['file']) . ')'); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <small class="description">Selecting a saved template loads its file and automatically selects its related form below.</small>
-                    </div>
 
                     <div class="bet-form-group">
                         <label for="template_name">Template name *</label>
@@ -91,14 +92,21 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                     </div>
 
                     <div class="bet-form-group">
-                        <label for="template_target">Template target/receiver</label>
-                        <select id="template_target" class="bet-input">
-                            <option value="none" <?php selected($template_target, 'none'); ?>>None</option>
-                            <option value="email" <?php selected($template_target, 'email'); ?>>Email</option>
-                            <option value="confirmation" <?php selected($template_target, 'confirmation'); ?>>Confirmation email</option>
-                            <option value="both" <?php selected($template_target, 'both'); ?>>Both</option>
-                        </select>
-                        <small class="description">Choose which Bricks email this template should replace for the selected form. Select None to save the file without assigning it to any email.</small>
+                        <label>Template target/receiver</label>
+                        <div class="bet-target-row">
+                            <fieldset class="bet-target-checkboxes">
+                                <legend class="screen-reader-text">Template target/receiver</legend>
+                                <label class="bet-checkbox-label">
+                                    <input type="checkbox" id="template_target_email" value="email" <?php checked($target_email_checked); ?>>
+                                    Email
+                                </label>
+                                <label class="bet-checkbox-label">
+                                    <input type="checkbox" id="template_target_confirmation" value="confirmation" <?php checked($target_confirmation_checked); ?>>
+                                    Confirmation email
+                                </label>
+                            </fieldset>
+                        </div>
+                        <small class="description">Choose which Bricks email this template should replace for the selected form. Leave both unchecked to save the file without assigning it to any email.</small>
                     </div>
 
                     <div class="bet-placeholder-panel">
@@ -118,22 +126,8 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                         <?php endif; ?>
                     </div>
 
-                    <div class="bet-template-notes">
-                        <p><strong>Template priority:</strong> If a template is mapped here for the selected Bricks form and target, this plugin overrides the matching Bricks email body. Keep the Bricks email action enabled so Bricks still sends the email.</p>
-                        <p><strong>Template files:</strong> All HTML templates are stored in the theme folder <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>. The active child theme is used first; the parent theme is checked after that.</p>
-                        <?php if (!empty($template_dirs) && is_array($template_dirs)): ?>
-                            <ul>
-                                <?php foreach ($template_dirs as $dir): ?>
-                                    <li><code><?php echo esc_html($dir); ?></code></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="bet-form-actions">
-                        <button type="button" class="button button-secondary" id="bet-preview-btn">Refresh preview</button>
-                        <button type="submit" class="button button-primary">Save template</button>
-                    </div>
+                    <button type="button" class="button button-secondary bet-hidden-action" id="bet-preview-btn">Refresh preview</button>
+                    <button type="submit" class="button button-primary bet-hidden-action">Save template</button>
                 </form>
             </div>
         </div>
@@ -144,5 +138,20 @@ $current_file = $is_editing && isset($template->current_file) ? (string) $templa
                 <div id="bet-preview-container" class="bet-preview"><p class="bet-preview-placeholder">Click Refresh preview to render the template.</p></div>
             </div>
         </div>
+    </div>
+
+    <div class="bet-template-notes">
+        <p><strong>Template priority:</strong> If a template is mapped here for the selected Bricks form and target, this plugin overrides the matching Bricks email body. Keep the Bricks email action enabled so Bricks still sends the email.</p>
+        <?php if (!empty($template_dir)): ?>
+            <p><strong>Templates are saved to:</strong> <code><?php echo esc_html($template_dir); ?></code></p>
+        <?php endif; ?>
+        <p><strong>Template files:</strong> All HTML templates are stored in the theme folder <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>. The active child theme is used first; the parent theme is checked after that.</p>
+        <?php if (!empty($template_dirs) && is_array($template_dirs)): ?>
+            <ul>
+                <?php foreach ($template_dirs as $dir): ?>
+                    <li><code><?php echo esc_html($dir); ?></code></li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
     </div>
 </div>

@@ -41,14 +41,15 @@ Go to **Bricks > Email Template Builder**.
 
 The builder edits HTML template files only:
 
-1. Select a Bricks form as the placeholder source.
-2. Choose the template target: None, Email, Confirmation email, or Both.
-3. Enter any template name you want. It is stored in WordPress settings, so changing it does not rename the HTML file.
-4. Paste or edit your HTML.
-5. Click placeholders to insert them at the cursor position in the HTML editor.
-6. Save the template. A `.html` template file is created or updated in the theme template folder and assigned to the selected Bricks form target.
+1. Click **Create new template** or select an existing template to edit.
+2. Select a Bricks form as the placeholder source.
+3. Choose the template target: Email, Confirmation email, or both checkboxes.
+4. Enter any template name you want. It is stored in WordPress settings, so changing it does not rename the HTML file.
+5. Paste or edit your HTML.
+6. Click placeholders to insert them at the cursor position in the HTML editor.
+7. Save the template. A `.html` template file is created or updated in the theme template folder and assigned to the selected Bricks form target.
 
-Choose **None** to save the template file without assigning it to an email.
+Leave both target checkboxes unchecked to save the template file without assigning it to an email.
 
 ## Sending Priority
 
@@ -58,8 +59,8 @@ When a template is mapped in this plugin, it replaces the matching Bricks email 
 
 - `Email` replaces the first Bricks email action message.
 - `Confirmation email` replaces the confirmation email message.
-- `Both` creates or updates separate mappings for both targets.
-- `None` disconnects the template from sending.
+- Checking both targets creates or updates separate mappings for both emails.
+- Leaving both targets unchecked saves the template without assigning it to sending.
 
 ## Automatic Updates
 

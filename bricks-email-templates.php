@@ -877,7 +877,7 @@ class Bricks_Email_Templates
         $target = 'file_' . sanitize_key($slug);
         $mappings = get_option('bet_form_mappings', array());
         if (!is_array($mappings)) {
-            return array('form_id' => '', 'target' => 'email');
+            return array('form_id' => '', 'target' => 'none');
         }
 
         foreach ($mappings as $mapping_key => $template_id) {
@@ -890,7 +890,7 @@ class Bricks_Email_Templates
             }
         }
 
-        return array('form_id' => '', 'target' => 'email');
+        return array('form_id' => '', 'target' => 'none');
     }
 
     public function ajax_save_template()
@@ -933,7 +933,7 @@ class Bricks_Email_Templates
 
         if ($template_target === 'both') {
             $email_result = $this->save_template_file_for_target($slug, $template_uuid, $name, $related_form_id, 'email', $custom_html);
-            $confirmation_result = $this->save_template_file_for_target($slug, '', $name, $related_form_id, 'confirmation', $custom_html);
+            $confirmation_result = $this->save_template_file_for_target('', '', $name, $related_form_id, 'confirmation', $custom_html);
             $primary_result = $email_result;
             if ($slug) {
                 if ($confirmation_result['slug'] === $slug) {
@@ -970,7 +970,19 @@ class Bricks_Email_Templates
         $desired_slug = $this->make_template_slug($name, $related_form_id, $template_target);
         $resolved_slug = '';
 
-        if ($template_uuid !== '') {
+        if ($slug) {
+            $existing_path_for_meta = $this->resolve_file_template_path($slug);
+            if ($existing_path_for_meta) {
+                $template_index = $this->get_template_index();
+                $existing_meta = $this->get_template_meta($slug, isset($template_index[$slug]) ? $template_index[$slug] : array());
+                $resolved_slug = $slug;
+                if ($template_uuid === '' && !empty($existing_meta['uuid'])) {
+                    $template_uuid = $existing_meta['uuid'];
+                }
+            }
+        }
+
+        if (!$resolved_slug && $template_uuid !== '') {
             $resolved_slug = $this->find_template_slug_by_uuid($template_uuid, $template_target);
         }
 
@@ -979,9 +991,10 @@ class Bricks_Email_Templates
             if ($existing_path_for_meta) {
                 $template_index = $this->get_template_index();
                 $existing_meta = $this->get_template_meta($slug, isset($template_index[$slug]) ? $template_index[$slug] : array());
+                $existing_uuid = isset($existing_meta['uuid']) ? sanitize_key($existing_meta['uuid']) : '';
                 $existing_form_id = isset($existing_meta['related_form_id']) ? (string) $existing_meta['related_form_id'] : '';
                 $existing_target = isset($existing_meta['template_target']) ? $this->normalize_template_target($existing_meta['template_target']) : 'email';
-                if ($existing_form_id === $related_form_id && $existing_target === $template_target) {
+                if (($template_uuid !== '' && $existing_uuid === $template_uuid) || ($existing_form_id === $related_form_id && $existing_target === $template_target)) {
                     $resolved_slug = $slug;
                     if ($template_uuid === '' && !empty($existing_meta['uuid'])) {
                         $template_uuid = $existing_meta['uuid'];
@@ -1062,7 +1075,7 @@ class Bricks_Email_Templates
             if ($mapped_template_id === $template_id) {
                 $parts = explode('|', (string) $form_id, 2);
                 $mapped_target = isset($parts[1]) ? $this->normalize_template_target($parts[1]) : 'email';
-                if ($template_target === 'both' || $mapped_target === $template_target) {
+                if ($template_target === 'none' || $template_target === 'both' || $mapped_target === $template_target) {
                     unset($mappings[$form_id]);
                 }
             }

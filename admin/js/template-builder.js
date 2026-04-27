@@ -39,51 +39,8 @@ jQuery(document).ready(function ($) {
 
     $('#related_form_id').on('change', function () {
         renderPlaceholders();
-        syncTemplateForSelectedContext();
     });
     renderPlaceholders();
-
-    $('#template_target').on('change', function () {
-        syncTemplateForSelectedContext();
-    });
-
-    function syncTemplateForSelectedContext() {
-        const formData = getFormData();
-        if (!formData.related_form_id) {
-            resetTemplateDraftForContext();
-            return;
-        }
-
-        $.ajax({
-            url: betAjax.ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'bet_find_template_for_target',
-                nonce: betAjax.nonce,
-                related_form_id: formData.related_form_id,
-                template_target: formData.template_target
-            },
-            success: function (response) {
-                const nextSlug = response.success && response.data ? response.data.slug : '';
-                if (nextSlug && nextSlug !== $('#template_slug').val()) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('page', 'bricks-email-builder');
-                    url.searchParams.set('edit', nextSlug);
-                    url.searchParams.set('preview', '1');
-                    window.location.href = url.toString();
-                    return;
-                }
-                if (!nextSlug) {
-                    resetTemplateDraftForContext();
-                    return;
-                }
-                $('#bet-preview-btn').trigger('click');
-            },
-            error: function () {
-                resetTemplateDraftForContext();
-            }
-        });
-    }
 
     $('#existing_template_slug').on('change', function () {
         const slug = $(this).val();
@@ -96,6 +53,15 @@ jQuery(document).ready(function ($) {
             url.searchParams.delete('edit');
             url.searchParams.delete('preview');
         }
+        window.location.href = url.toString();
+    });
+
+    $('#bet-create-template-btn').on('click', function (e) {
+        e.preventDefault();
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', 'bricks-email-builder');
+        url.searchParams.delete('edit');
+        url.searchParams.delete('preview');
         window.location.href = url.toString();
     });
 
@@ -151,6 +117,7 @@ jQuery(document).ready(function ($) {
         const formData = getFormData();
         const $form = $(this);
         const $submitBtn = $form.find('button[type="submit"]');
+        const $topSubmitBtn = $('.bet-save-btn-top');
 
         if (!formData.name) {
             showMessage('Template name is required.', 'error');
@@ -162,6 +129,7 @@ jQuery(document).ready(function ($) {
         }
 
         $submitBtn.prop('disabled', true).text('Saving...');
+        $topSubmitBtn.prop('disabled', true).text('Saving...');
         $.ajax({
             url: betAjax.ajaxurl,
             type: 'POST',
@@ -181,15 +149,18 @@ jQuery(document).ready(function ($) {
                         }, 500);
                     } else {
                         $submitBtn.prop('disabled', false).text('Save template');
+                        $topSubmitBtn.prop('disabled', false).text('Save template');
                     }
                     return;
                 }
                 showMessage('Save failed: ' + response.data, 'error');
                 $submitBtn.prop('disabled', false).text('Save template');
+                $topSubmitBtn.prop('disabled', false).text('Save template');
             },
             error: function () {
                 showMessage('Save failed.', 'error');
                 $submitBtn.prop('disabled', false).text('Save template');
+                $topSubmitBtn.prop('disabled', false).text('Save template');
             }
         });
     });
@@ -200,9 +171,24 @@ jQuery(document).ready(function ($) {
             template_uuid: $('#template_uuid').val(),
             name: String($('#template_name').val() || '').trim(),
             related_form_id: $('#related_form_id').val(),
-            template_target: $('#template_target').val(),
+            template_target: getSelectedTemplateTarget(),
             custom_html: String($('#custom_html').val() || '').trim()
         };
+    }
+
+    function getSelectedTemplateTarget() {
+        const email = $('#template_target_email').is(':checked');
+        const confirmation = $('#template_target_confirmation').is(':checked');
+        if (email && confirmation) {
+            return 'both';
+        }
+        if (confirmation) {
+            return 'confirmation';
+        }
+        if (email) {
+            return 'email';
+        }
+        return 'none';
     }
 
     function insertAtCursor($target, text) {
@@ -222,23 +208,18 @@ jQuery(document).ready(function ($) {
         $target.trigger('focus').trigger('input');
     }
 
-    function resetTemplateDraftForContext() {
-        $('#template_slug').val('');
-        $('#template_uuid').val('');
-        $('#existing_template_slug').val('');
-        $('#template_name').val('');
-        $('#custom_html').val('').trigger('input');
-        $('#bet-preview-container').html('<p class="bet-preview-placeholder">Click Refresh preview to render the template.</p>');
-        showMessage('No saved template exists for this form and target yet. Create a new template and save it.', 'success');
-    }
-
     function getPreviewFallbackHeight() {
         return 1000;
     }
 
     function showMessage(message, type) {
         const $message = $('<div class="bet-message bet-message-' + type + '">' + escapeHtml(message) + '</div>');
-        $('.bet-builder-form-panel .bet-card').first().prepend($message);
+        const $container = $('#bet-message-container');
+        if ($container.length) {
+            $container.empty().append($message);
+        } else {
+            $('.bet-builder-form-panel .bet-card').first().prepend($message);
+        }
         setTimeout(function () { $message.fadeOut(300, function () { $(this).remove(); }); }, 5000);
     }
 

@@ -7,13 +7,39 @@
 
 .bet-builder-header-actions {
     display: flex;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     margin: 20px 0;
 }
 
 .bet-toolbar {
     display: flex;
+    align-items: center;
     gap: 8px;
+}
+
+.bet-template-switcher {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bet-toolbar-primary {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.bet-existing-template-select {
+    width: min(420px, 100%);
+}
+
+.bet-template-switcher-text {
+    color: #50575e;
+    white-space: nowrap;
+}
+
+.bet-message-container {
+    margin: 10px 0 0;
 }
 
 .bet-builder-container {
@@ -64,6 +90,27 @@
     width: 100%;
     max-width: 100%;
     border-radius: 0;
+}
+
+.bet-target-row {
+    display: block;
+}
+
+.bet-target-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.bet-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-weight: 400;
 }
 
 .bet-form-group .description,
@@ -127,12 +174,8 @@
     margin: 4px 0;
 }
 
-.bet-form-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 22px;
-    padding-top: 18px;
-    border-top: 1px solid #ccd0d4;
+.bet-hidden-action {
+    display: none;
 }
 
 .bet-sticky-preview {
@@ -178,6 +221,20 @@
 }
 
 @media (max-width: 1000px) {
+    .bet-builder-header-actions,
+    .bet-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .bet-toolbar-primary {
+        flex-direction: row;
+    }
+
+    .bet-existing-template-select {
+        width: 100%;
+    }
+
     .bet-builder-container {
         display: block;
     }
