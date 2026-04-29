@@ -521,7 +521,13 @@ class Bricks_Email_Templates
             $fields = self::$captured_fields;
         }
 
-        $processed_content = $this->apply_template_to_content($template_id, $this->normalize_fields($fields), $content, $debug_log);
+        $processed_content = $this->apply_template_to_content(
+            $template_id,
+            $this->normalize_fields($fields),
+            $content,
+            $debug_log,
+            array('strip_document_shell' => true)
+        );
         if ($processed_content !== $content) {
             self::$processed_message_hashes[] = md5($processed_content);
         }
@@ -582,7 +588,7 @@ class Bricks_Email_Templates
         return self::$active_form_id;
     }
 
-    private function apply_template_to_content($template_id, $fields, $raw_content, $debug_log = array())
+    private function apply_template_to_content($template_id, $fields, $raw_content, $debug_log = array(), $options = array())
     {
         $debug_log[] = 'Applying template ' . $template_id;
         $slug = $this->get_template_slug_from_id($template_id);
@@ -599,9 +605,46 @@ class Bricks_Email_Templates
         }
 
         $template_content = $this->replace_placeholders($template_content, $fields, $raw_content);
+        if (!empty($options['strip_document_shell'])) {
+            $template_content = $this->strip_html_document_shell($template_content);
+        }
         add_filter('wp_mail_content_type', array($this, 'force_html_mail_content_type'), 999);
 
         return $template_content;
+    }
+
+    private function strip_html_document_shell($html)
+    {
+        $html = (string) $html;
+        if (!$this->contains_html_document_shell($html)) {
+            return $html;
+        }
+
+        $body = $this->extract_tag_inner_html($html, 'body');
+        if ($body !== null) {
+            return trim($body);
+        }
+
+        $without_doctype = preg_replace('/^\s*<!doctype[^>]*>\s*/i', '', $html);
+        $without_html = preg_replace('/^\s*<html\b[^>]*>\s*|\s*<\/html>\s*$/i', '', $without_doctype);
+        $without_head = preg_replace('/<head\b[^>]*>.*?<\/head>\s*/is', '', $without_html);
+
+        return trim((string) $without_head);
+    }
+
+    private function contains_html_document_shell($html)
+    {
+        return preg_match('/<!doctype\b|<html\b|<head\b|<body\b/i', (string) $html) === 1;
+    }
+
+    private function extract_tag_inner_html($html, $tag)
+    {
+        $tag = preg_quote($tag, '/');
+        if (preg_match('/<' . $tag . '\b[^>]*>(.*?)<\/' . $tag . '>/is', (string) $html, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     public function force_html_mail_content_type($content_type)
@@ -655,6 +698,7 @@ class Bricks_Email_Templates
     {
         $debug_log = array('WP Mail intercept triggered');
         if (isset($args['message']) && strpos($args['message'], 'bet-email-wrapper') !== false) {
+            $args['message'] = $this->normalize_nested_html_documents($args['message']);
             return $args;
         }
         if (isset($args['message']) && in_array(md5((string) $args['message']), self::$processed_message_hashes, true)) {
@@ -702,6 +746,29 @@ class Bricks_Email_Templates
         }
 
         return $args;
+    }
+
+    private function normalize_nested_html_documents($message)
+    {
+        $message = (string) $message;
+        if (substr_count(strtolower($message), '<html') < 2 && substr_count(strtolower($message), '<body') < 2) {
+            return $message;
+        }
+
+        $outer_body = $this->extract_tag_inner_html($message, 'body');
+        if ($outer_body === null || !$this->contains_html_document_shell($outer_body)) {
+            return $message;
+        }
+
+        $clean_body = $this->strip_html_document_shell($outer_body);
+        return preg_replace_callback(
+            '/(<body\b[^>]*>).*?(<\/body>)/is',
+            function ($matches) use ($clean_body) {
+                return $matches[1] . $clean_body . $matches[2];
+            },
+            $message,
+            1
+        );
     }
 
     private function apply_template_to_mail_args($args, $template_id, $fields, $debug_log = array())
