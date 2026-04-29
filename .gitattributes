@@ -1,5 +1,5 @@
 *.zip export-ignore
 /.gitignore export-ignore
 /.gitattributes export-ignore
-/todo/ export-ignore
-/templates/ export-ignore
+/todo/** export-ignore
+/templates/** export-ignore

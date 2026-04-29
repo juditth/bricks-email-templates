@@ -1,6 +1,6 @@
 # Bricks Email Templates
 
-WordPress plugin for creating, editing, and assigning theme-based HTML email templates to Bricks Builder forms.
+WordPress plugin for creating, editing, and assigning file-based HTML email templates to Bricks Builder forms.
 
 ## Requirements
 
@@ -14,17 +14,18 @@ The plugin blocks activation when Bricks is not active.
 
 - Adds its admin pages under the Bricks admin menu.
 - Lets you assign a detected Bricks form while editing a template.
-- Creates and edits template files in the active child theme or parent theme.
+- Creates and edits template files in the active child theme or parent theme on single-site installs.
+- Stores template files per site in uploads on multisite installs.
 - Overrides the matching Bricks email body when a template is mapped to a form and target.
 - Shows detected form field placeholders so they can be inserted into custom HTML.
 - Supports `{{all_fields}}` and individual field placeholders such as `{{email}}`.
-- Loads templates from the active child theme first, then the parent theme.
+- Loads templates from the active child theme first, then the parent theme on single-site installs.
 
 ## Template Storage
 
 Template HTML is not stored in the database.
 
-They live in your active theme folder:
+On single-site installs, they live in your active theme folder:
 
 ```text
 wp-content/themes/your-child-theme/bricks-email-templates/contact.html
@@ -32,6 +33,14 @@ wp-content/themes/your-parent-theme/bricks-email-templates/contact.html
 ```
 
 Use a child theme whenever possible. The child theme folder wins over the parent theme folder when a file has the same name.
+
+On multisite installs, they live in the current site's uploads folder:
+
+```text
+wp-content/uploads/sites/site-id/bricks-email-templates/contact.html
+```
+
+This keeps template files isolated per site even when multiple sites use the same theme.
 
 The plugin uses normal WordPress options to store template labels, stable IDs, targets, and form-to-template mappings.
 
@@ -47,7 +56,7 @@ The builder edits HTML template files only:
 4. Enter any template name you want. It is stored in WordPress settings, so changing it does not rename the HTML file.
 5. Paste or edit your HTML.
 6. Click placeholders to insert them at the cursor position in the HTML editor.
-7. Save the template. A `.html` template file is created or updated in the theme template folder and assigned to the selected Bricks form target.
+7. Save the template. A `.html` template file is created or updated in the template storage folder and assigned to the selected Bricks form target.
 
 Leave both target checkboxes unchecked to save the template file without assigning it to an email.
 
@@ -76,13 +85,15 @@ The update metadata should point to the release ZIP package and use the `bricks-
 {
   "name": "Bricks Email Templates",
   "slug": "bricks-email-templates",
-  "version": "1.0.1",
-  "download_url": "https://vyladeny-web.cz/plugins/bricks-email-templates/bricks-email-templates.zip",
+  "version": "1.0.2",
+  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.2.zip",
   "requires": "6.0",
-  "tested": "6.8",
+  "tested": "6.9",
   "requires_php": "8.0"
 }
 ```
+
+Keep the server copy of `info.json` aligned with the root `info.json` file before publishing a new release tag.
 
 ## Placeholders
 

@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Email Templates
  * Plugin URI: https://github.com/juditth/bricks-email-templates
  * Description: Build and map file-based HTML email templates for Bricks Builder forms.
- * Version:     1.0.0
+ * Version:     1.0.2
  * Author:      Jitka Klingenbergová
  * Author URI:  https://vyladeny-web.cz/
  * License:     GPL-2.0-or-later
@@ -12,14 +12,14 @@
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Domain Path: /languages
- * Stable Tag: 1.0.0
+ * Stable Tag: 1.0.2
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BET_VERSION', '1.0.0');
+define('BET_VERSION', '1.0.2');
 define('BET_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BET_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BET_THEME_TEMPLATES_FOLDER', 'bricks-email-templates');
@@ -283,6 +283,11 @@ class Bricks_Email_Templates
 
     private function get_theme_template_directories()
     {
+        if ($this->use_upload_template_storage()) {
+            $upload_template_dir = $this->get_upload_template_directory();
+            return $upload_template_dir ? array($upload_template_dir) : array();
+        }
+
         $dirs = array();
         if (function_exists('get_stylesheet_directory')) {
             $dirs[] = trailingslashit(get_stylesheet_directory()) . BET_THEME_TEMPLATES_FOLDER;
@@ -294,6 +299,25 @@ class Bricks_Email_Templates
             }
         }
         return $dirs;
+    }
+
+    private function use_upload_template_storage()
+    {
+        return function_exists('is_multisite') && is_multisite();
+    }
+
+    private function get_upload_template_directory()
+    {
+        if (!function_exists('wp_upload_dir')) {
+            return '';
+        }
+
+        $upload_dir = wp_upload_dir(null, false);
+        if (!empty($upload_dir['error']) || empty($upload_dir['basedir'])) {
+            return '';
+        }
+
+        return trailingslashit($upload_dir['basedir']) . BET_THEME_TEMPLATES_FOLDER;
     }
 
     private function get_writable_template_directory()
@@ -851,6 +875,7 @@ class Bricks_Email_Templates
         $forms = array_values($this->get_bricks_forms());
         $template_dir = $this->get_writable_template_directory();
         $template_dirs = $this->get_theme_template_directories();
+        $template_storage_mode = $this->use_upload_template_storage() ? 'uploads' : 'theme';
         include BET_PLUGIN_DIR . 'admin/views/builder-page.php';
     }
 
@@ -1028,6 +1053,9 @@ class Bricks_Email_Templates
         $existing_path = $this->resolve_file_template_path($slug);
         $target_dir = $existing_path ? dirname($existing_path) : $this->get_writable_template_directory();
         if (!$target_dir) {
+            if ($this->use_upload_template_storage()) {
+                wp_send_json_error('No writable uploads template directory was found. Check that this site uploads folder is writable.');
+            }
             wp_send_json_error('No writable theme template directory was found. Create the folder in your child theme and make it writable.');
         }
 

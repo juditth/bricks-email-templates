@@ -18,15 +18,24 @@ $template_target = $is_editing && isset($template->template_target) ? (string) $
 $current_file = $is_editing && isset($template->current_file) ? (string) $template->current_file : '';
 $target_email_checked = in_array($template_target, array('email', 'both'), true);
 $target_confirmation_checked = in_array($template_target, array('confirmation', 'both'), true);
+$template_storage_mode = isset($template_storage_mode) ? (string) $template_storage_mode : 'theme';
 ?>
 
 <div class="wrap bet-builder-wrap">
     <h1>HTML Email Template Builder</h1>
     <div id="bet-message-container" class="bet-message-container"></div>
-    <p>Create, edit, and assign HTML email template files in your active child theme or parent theme.</p>
+    <?php if ($template_storage_mode === 'uploads'): ?>
+        <p>Create, edit, and assign HTML email template files in this site's uploads folder.</p>
+    <?php else: ?>
+        <p>Create, edit, and assign HTML email template files in your active child theme or parent theme.</p>
+    <?php endif; ?>
 
     <?php if (empty($template_dir)): ?>
-        <div class="notice notice-error"><p>No writable theme template directory was found. Create <code>bricks-email-templates</code> in your child theme and make it writable.</p></div>
+        <?php if ($template_storage_mode === 'uploads'): ?>
+            <div class="notice notice-error"><p>No writable uploads template directory was found. Check that this site's uploads folder is writable.</p></div>
+        <?php else: ?>
+            <div class="notice notice-error"><p>No writable theme template directory was found. Create <code>bricks-email-templates</code> in your child theme and make it writable.</p></div>
+        <?php endif; ?>
     <?php endif; ?>
 
     <div class="bet-builder-header-actions">
@@ -145,7 +154,11 @@ $target_confirmation_checked = in_array($template_target, array('confirmation', 
         <?php if (!empty($template_dir)): ?>
             <p><strong>Templates are saved to:</strong> <code><?php echo esc_html($template_dir); ?></code></p>
         <?php endif; ?>
-        <p><strong>Template files:</strong> All HTML templates are stored in the theme folder <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>. The active child theme is used first; the parent theme is checked after that.</p>
+        <?php if ($template_storage_mode === 'uploads'): ?>
+            <p><strong>Template files:</strong> On multisite, HTML templates are stored in this site's uploads folder under <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>, so each site has its own template files.</p>
+        <?php else: ?>
+            <p><strong>Template files:</strong> All HTML templates are stored in the theme folder <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>. The active child theme is used first; the parent theme is checked after that.</p>
+        <?php endif; ?>
         <?php if (!empty($template_dirs) && is_array($template_dirs)): ?>
             <ul>
                 <?php foreach ($template_dirs as $dir): ?>
