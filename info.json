@@ -1,14 +1,14 @@
 {
   "name": "Bricks Email Templates",
   "slug": "bricks-email-templates",
-  "version": "1.0.2",
-  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.2.zip",
+  "version": "1.0.3",
+  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.3.zip",
   "requires": "6.0",
   "tested": "6.9",
   "requires_php": "8.0",
-  "last_updated": "2026-04-29 14:45:00",
+  "last_updated": "2026-04-29 15:05:00",
   "sections": {
     "description": "Build and map file-based HTML email templates for Bricks Builder forms.",
-    "changelog": "<h4>1.0.2</h4><ul><li>Fixed the release version metadata so WordPress installs the update as version 1.0.2.</li><li>Updated the updater package URL to the 1.0.2 GitHub tag archive.</li></ul><h4>1.0.1</h4><ul><li>Added multisite-safe template storage in per-site uploads folders.</li><li>Updated admin notices and documentation for multisite template storage.</li></ul><h4>1.0.0</h4><ul><li>Initial release.</li><li>Added file-based HTML template editor for Bricks forms.</li><li>Added template assignment for Bricks admin email and confirmation email.</li><li>Added checkbox-based target selection for Email and Confirmation email.</li><li>Added support for saving templates without assigning them to any email.</li><li>Added placeholder replacement for submitted Bricks form fields, including normalized Bricks field IDs.</li><li>Added preview rendering in the template editor.</li><li>Added automatic updates via bundled Plugin Update Checker.</li><li>Added cleanup for stale mappings when a mapped template file no longer exists.</li><li>Improved release package exclusions for local templates, todo files, ZIPs, and git metadata.</li></ul>"
+    "changelog": "<h4>1.0.3</h4><ul><li>Prevented duplicate HTML document wrappers when Bricks forms use HTML email format.</li></ul><h4>1.0.2</h4><ul><li>Fixed the release version metadata so WordPress installs the update as version 1.0.2.</li><li>Updated the updater package URL to the 1.0.2 GitHub tag archive.</li></ul><h4>1.0.1</h4><ul><li>Added multisite-safe template storage in per-site uploads folders.</li><li>Updated admin notices and documentation for multisite template storage.</li></ul><h4>1.0.0</h4><ul><li>Initial release.</li><li>Added file-based HTML template editor for Bricks forms.</li><li>Added template assignment for Bricks admin email and confirmation email.</li><li>Added checkbox-based target selection for Email and Confirmation email.</li><li>Added support for saving templates without assigning them to any email.</li><li>Added placeholder replacement for submitted Bricks form fields, including normalized Bricks field IDs.</li><li>Added preview rendering in the template editor.</li><li>Added automatic updates via bundled Plugin Update Checker.</li><li>Added cleanup for stale mappings when a mapped template file no longer exists.</li><li>Improved release package exclusions for local templates, todo files, ZIPs, and git metadata.</li></ul>"
   }
 }

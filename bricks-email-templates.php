@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Email Templates
  * Plugin URI: https://github.com/juditth/bricks-email-templates
  * Description: Build and map file-based HTML email templates for Bricks Builder forms.
- * Version:     1.0.2
+ * Version:     1.0.3
  * Author:      Jitka Klingenbergová
  * Author URI:  https://vyladeny-web.cz/
  * License:     GPL-2.0-or-later
@@ -12,14 +12,14 @@
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Domain Path: /languages
- * Stable Tag: 1.0.2
+ * Stable Tag: 1.0.3
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BET_VERSION', '1.0.2');
+define('BET_VERSION', '1.0.3');
 define('BET_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BET_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BET_THEME_TEMPLATES_FOLDER', 'bricks-email-templates');

@@ -85,8 +85,8 @@ The update metadata should point to the release ZIP package and use the `bricks-
 {
   "name": "Bricks Email Templates",
   "slug": "bricks-email-templates",
-  "version": "1.0.2",
-  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.2.zip",
+  "version": "1.0.3",
+  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.3.zip",
   "requires": "6.0",
   "tested": "6.9",
   "requires_php": "8.0"
