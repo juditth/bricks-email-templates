@@ -14,33 +14,39 @@ The plugin blocks activation when Bricks is not active.
 
 - Adds its admin pages under the Bricks admin menu.
 - Lets you assign a detected Bricks form while editing a template.
-- Creates and edits template files in the active child theme or parent theme on single-site installs.
-- Stores template files per site in uploads on multisite installs.
+- Creates and edits template files in the site's uploads folder, so they survive theme and plugin updates.
 - Overrides the matching Bricks email body when a template is mapped to a form and target.
 - Shows detected form field placeholders so they can be inserted into custom HTML.
 - Supports `{{all_fields}}` and individual field placeholders such as `{{email}}`.
-- Loads templates from the active child theme first, then the parent theme on single-site installs.
+- Still reads older theme-based template files as a legacy fallback.
 
 ## Template Storage
 
 Template HTML is not stored in the database.
 
-On single-site installs, they live in your active theme folder:
+Templates live in the current site's uploads folder:
 
 ```text
-wp-content/themes/your-child-theme/bricks-email-templates/contact.html
-wp-content/themes/your-parent-theme/bricks-email-templates/contact.html
+wp-content/uploads/bricks-email-templates/contact.html
+wp-content/uploads/sites/site-id/bricks-email-templates/contact.html
 ```
 
-Use a child theme whenever possible. The child theme folder wins over the parent theme folder when a file has the same name.
-
-On multisite installs, they live in the current site's uploads folder:
+On multisite installs, WordPress automatically uses the current site's uploads path:
 
 ```text
 wp-content/uploads/sites/site-id/bricks-email-templates/contact.html
 ```
 
 This keeps template files isolated per site even when multiple sites use the same theme.
+
+Older versions stored templates in the active child theme or parent theme:
+
+```text
+wp-content/themes/your-child-theme/bricks-email-templates/contact.html
+wp-content/themes/your-parent-theme/bricks-email-templates/contact.html
+```
+
+Those legacy files are still detected and copied to uploads when the builder opens. Future saves write to uploads.
 
 The plugin uses normal WordPress options to store template labels, stable IDs, targets, and form-to-template mappings.
 
@@ -56,7 +62,7 @@ The builder edits HTML template files only:
 4. Enter any template name you want. It is stored in WordPress settings, so changing it does not rename the HTML file.
 5. Paste or edit your HTML.
 6. Click placeholders to insert them at the cursor position in the HTML editor.
-7. Save the template. A `.html` template file is created or updated in the template storage folder and assigned to the selected Bricks form target.
+7. Save the template. A `.html` template file is created or updated in the uploads template folder and assigned to the selected Bricks form target.
 
 Leave both target checkboxes unchecked to save the template file without assigning it to an email.
 
@@ -85,8 +91,8 @@ The update metadata should point to the release ZIP package and use the `bricks-
 {
   "name": "Bricks Email Templates",
   "slug": "bricks-email-templates",
-  "version": "1.0.3",
-  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.3.zip",
+  "version": "1.0.4",
+  "download_url": "https://github.com/juditth/bricks-email-templates/archive/refs/tags/1.0.4.zip",
   "requires": "6.0",
   "tested": "6.9",
   "requires_php": "8.0"

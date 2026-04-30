@@ -89,9 +89,9 @@ $template_storage_mode = isset($template_storage_mode) ? (string) $template_stor
                             <?php foreach ($forms as $form): ?>
                                 <?php
                                 $form_page_title = !empty($form['page_title']) ? (string) $form['page_title'] : '';
-                                $form_label = $form['name'] . ' ' . $form['id'];
-                                if ($form_page_title !== '') {
-                                    $form_label .= ' (' . $form_page_title . ')';
+                                $form_label = $form_page_title !== '' ? $form_page_title : __('Untitled page', 'bricks-email-templates');
+                                if (!empty($form['id'])) {
+                                    $form_label .= ' - ' . sprintf(__('Form %s', 'bricks-email-templates'), (string) $form['id']);
                                 }
                                 ?>
                                 <option value="<?php echo esc_attr($form['id']); ?>" <?php selected($related_form_id, $form['id']); ?>><?php echo esc_html($form_label); ?></option>
@@ -155,7 +155,7 @@ $template_storage_mode = isset($template_storage_mode) ? (string) $template_stor
             <p><strong>Templates are saved to:</strong> <code><?php echo esc_html($template_dir); ?></code></p>
         <?php endif; ?>
         <?php if ($template_storage_mode === 'uploads'): ?>
-            <p><strong>Template files:</strong> On multisite, HTML templates are stored in this site's uploads folder under <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>, so each site has its own template files.</p>
+            <p><strong>Template files:</strong> HTML templates are stored in this site's uploads folder under <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>, so they are not removed by theme or plugin updates. Existing theme-based templates are copied to uploads when the builder opens.</p>
         <?php else: ?>
             <p><strong>Template files:</strong> All HTML templates are stored in the theme folder <code><?php echo esc_html(BET_THEME_TEMPLATES_FOLDER); ?></code>. The active child theme is used first; the parent theme is checked after that.</p>
         <?php endif; ?>

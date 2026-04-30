@@ -3,7 +3,7 @@
  * Plugin Name: Bricks Email Templates
  * Plugin URI: https://github.com/juditth/bricks-email-templates
  * Description: Build and map file-based HTML email templates for Bricks Builder forms.
- * Version:     1.0.3
+ * Version:     1.0.4
  * Author:      Jitka Klingenbergová
  * Author URI:  https://vyladeny-web.cz/
  * License:     GPL-2.0-or-later
@@ -12,14 +12,14 @@
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Domain Path: /languages
- * Stable Tag: 1.0.3
+ * Stable Tag: 1.0.4
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BET_VERSION', '1.0.3');
+define('BET_VERSION', '1.0.4');
 define('BET_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BET_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BET_THEME_TEMPLATES_FOLDER', 'bricks-email-templates');
@@ -283,11 +283,28 @@ class Bricks_Email_Templates
 
     private function get_theme_template_directories()
     {
-        if ($this->use_upload_template_storage()) {
-            $upload_template_dir = $this->get_upload_template_directory();
-            return $upload_template_dir ? array($upload_template_dir) : array();
+        $dirs = array();
+        $upload_template_dir = $this->get_upload_template_directory();
+        if ($upload_template_dir) {
+            $dirs[] = $upload_template_dir;
         }
 
+        foreach ($this->get_legacy_theme_template_directories() as $legacy_dir) {
+            if (!in_array($legacy_dir, $dirs, true)) {
+                $dirs[] = $legacy_dir;
+            }
+        }
+
+        return $dirs;
+    }
+
+    private function use_upload_template_storage()
+    {
+        return true;
+    }
+
+    private function get_legacy_theme_template_directories()
+    {
         $dirs = array();
         if (function_exists('get_stylesheet_directory')) {
             $dirs[] = trailingslashit(get_stylesheet_directory()) . BET_THEME_TEMPLATES_FOLDER;
@@ -299,11 +316,6 @@ class Bricks_Email_Templates
             }
         }
         return $dirs;
-    }
-
-    private function use_upload_template_storage()
-    {
-        return function_exists('is_multisite') && is_multisite();
     }
 
     private function get_upload_template_directory()
@@ -322,15 +334,55 @@ class Bricks_Email_Templates
 
     private function get_writable_template_directory()
     {
-        foreach ($this->get_theme_template_directories() as $dir) {
-            if (!is_dir($dir)) {
-                wp_mkdir_p($dir);
-            }
-            if (is_dir($dir) && wp_is_writable($dir)) {
-                return $dir;
-            }
+        $dir = $this->get_upload_template_directory();
+        if (!$dir) {
+            return '';
+        }
+        if (!is_dir($dir)) {
+            wp_mkdir_p($dir);
+        }
+        if (is_dir($dir) && wp_is_writable($dir)) {
+            return $dir;
         }
         return '';
+    }
+
+    private function is_upload_template_path($path)
+    {
+        $upload_template_dir = $this->get_upload_template_directory();
+        if (!$upload_template_dir) {
+            return false;
+        }
+
+        return strpos(wp_normalize_path($path), trailingslashit(wp_normalize_path($upload_template_dir))) === 0;
+    }
+
+    private function migrate_legacy_theme_templates_to_uploads()
+    {
+        $target_dir = $this->get_writable_template_directory();
+        if (!$target_dir) {
+            return;
+        }
+
+        foreach ($this->get_legacy_theme_template_directories() as $legacy_dir) {
+            if (!is_dir($legacy_dir)) {
+                continue;
+            }
+
+            foreach (scandir($legacy_dir) as $file) {
+                if (strtolower((string) pathinfo($file, PATHINFO_EXTENSION)) !== 'html') {
+                    continue;
+                }
+
+                $source_path = trailingslashit($legacy_dir) . $file;
+                $target_path = trailingslashit($target_dir) . sanitize_file_name($file);
+                if (!is_file($source_path) || !is_readable($source_path) || file_exists($target_path)) {
+                    continue;
+                }
+
+                @copy($source_path, $target_path);
+            }
+        }
     }
 
     private function get_file_templates()
@@ -919,6 +971,7 @@ class Bricks_Email_Templates
             return;
         }
 
+        $this->migrate_legacy_theme_templates_to_uploads();
         $templates = $this->get_file_templates();
         $editing_template = null;
         $editing_slug = isset($_GET['edit']) ? sanitize_key(wp_unslash($_GET['edit'])) : '';
@@ -1118,15 +1171,12 @@ class Bricks_Email_Templates
         }
 
         $existing_path = $this->resolve_file_template_path($slug);
-        $target_dir = $existing_path ? dirname($existing_path) : $this->get_writable_template_directory();
+        $target_dir = ($existing_path && $this->is_upload_template_path($existing_path)) ? dirname($existing_path) : $this->get_writable_template_directory();
         if (!$target_dir) {
-            if ($this->use_upload_template_storage()) {
-                wp_send_json_error('No writable uploads template directory was found. Check that this site uploads folder is writable.');
-            }
-            wp_send_json_error('No writable theme template directory was found. Create the folder in your child theme and make it writable.');
+            wp_send_json_error('No writable uploads template directory was found. Check that this site uploads folder is writable.');
         }
 
-        $target_path = $existing_path ? $existing_path : trailingslashit($target_dir) . $slug . '.html';
+        $target_path = ($existing_path && $this->is_upload_template_path($existing_path)) ? $existing_path : trailingslashit($target_dir) . $slug . '.html';
         $allowed_dirs = array_map('wp_normalize_path', $this->get_theme_template_directories());
         $normalized_target = wp_normalize_path($target_path);
         $allowed = false;
